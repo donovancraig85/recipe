@@ -77,7 +77,7 @@ function fuzzyMatch(text, query) {
 }
 
 // -----------------------------
-// SEARCH (FUZZY NAME MATCHING)
+// SEARCH (NAME + TITLE LINE)
 // -----------------------------
 const search = document.getElementById("search");
 const searchBtn = document.getElementById("search-btn");
@@ -87,7 +87,13 @@ function runSearch() {
 
   const filtered = recipes.filter(recipe => {
     const name = typeof recipe.name === "string" ? recipe.name : "";
-    return fuzzyMatch(name, query);
+
+    const titleLine =
+      Array.isArray(recipe.directions) && recipe.directions.length > 0
+        ? recipe.directions[0]
+        : "";
+
+    return fuzzyMatch(name, query) || fuzzyMatch(titleLine, query);
   });
 
   renderRecipes(filtered);
@@ -211,15 +217,17 @@ function processRecipeText(text, name) {
     directions
   };
 
-  db.collection("recipes").add(newRecipe)
+  // -----------------------------
+  // SAVE USING NAME AS DOCUMENT ID
+  // -----------------------------
+  db.collection("recipes").doc(name).set(newRecipe)
     .then(() => {
       alert("Recipe uploaded successfully!");
       uploadName.value = "";
       fileInput.value = "";
 
-      // IMPORTANT FIX:
-      // Do NOT call loadRecipes() — it overwrites search results.
-      recipes.push(newRecipe);
+      // Add locally so search updates immediately
+      recipes.push({ id: name, ...newRecipe });
       renderRecipes(recipes);
     })
     .catch(err => {
