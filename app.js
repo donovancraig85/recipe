@@ -12,6 +12,13 @@ function loadRecipes() {
       id: doc.id,
       ...doc.data()
     }));
+
+    // Safety: ensure name is always a string
+    recipes = recipes.map(r => ({
+      ...r,
+      name: typeof r.name === "string" ? r.name : ""
+    }));
+
     renderRecipes(recipes);
   }).catch(err => {
     console.error("Error loading recipes:", err);
@@ -49,9 +56,9 @@ function levenshteinDistance(a, b) {
     for (let j = 1; j <= a.length; j++) {
       const cost = b[i - 1] === a[j - 1] ? 0 : 1;
       matrix[i][j] = Math.min(
-        matrix[i - 1][j] + 1,      // deletion
-        matrix[i][j - 1] + 1,      // insertion
-        matrix[i - 1][j - 1] + cost // substitution
+        matrix[i - 1][j] + 1,
+        matrix[i][j - 1] + 1,
+        matrix[i - 1][j - 1] + cost
       );
     }
   }
@@ -62,10 +69,8 @@ function fuzzyMatch(text, query) {
   text = text.toLowerCase();
   query = query.toLowerCase();
 
-  // Exact or partial match
   if (text.includes(query)) return true;
 
-  // Fuzzy: allow small typos
   const maxDistance = 2;
   return levenshteinDistance(text, query) <= maxDistance;
 }
@@ -112,6 +117,11 @@ uploadbtn.addEventListener("click", () => {
   }
 
   const extension = file.name.split(".").pop().toLowerCase();
+
+  if (extension === "docx") {
+    alert("DOCX files are not supported. Please upload a PDF or plain text file.");
+    return;
+  }
 
   if (extension === "pdf") {
     readPDF(file, name);
@@ -164,20 +174,41 @@ function readPDF(file, name) {
 }
 
 // -----------------------------
-// PROCESS RECIPE TEXT (NO VALIDATION)
+// PROCESS RECIPE TEXT
 // -----------------------------
 function processRecipeText(text, name) {
-  const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+  const lines = text.split("\n")
+    .map(l => l.trim())
+    .filter(l => l.length > 0);
 
-// Extract ingredients: lines starting with • or -
-const ingredients = lines.filter(l =>
-  l.startsWith("•") || l.startsWith("-")
-).map(l => l.replace(/^•\s*|-/, "").trim());
+  // Bullet-style ingredients (• or -)
+  const bulletIngredients = lines.filter(l =>
+    l.startsWith("•") || l.startsWith("-")
+  ).map(l =>
+    l.replace(/^•\s*|-/, "").trim()
+  );
 
-// Directions = everything else except ingredients
-const directions = lines.filter(l =>
-  !l.startsWith("•") && !l.startsWith("-")
-);
+  // Comma-separated ingredients
+  const commaLine = lines.find(l => l.includes(","));
+  const commaIngredients = commaLine
+    ? commaLine.split(",").map(i => i.trim())
+    : [];
+
+  const ingredients = bulletIngredients.length > 0
+    ? bulletIngredients
+    : commaIngredients;
+
+  const directions = lines.filter(l =>
+    !l.startsWith("•") &&
+    !l.startsWith("-") &&
+    l !== commaLine
+  );
+
+  const newRecipe = {
+    name,
+    ingredients,
+    directions
+  };
 
   db.collection("recipes").add(newRecipe)
     .then(() => {
