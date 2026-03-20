@@ -46,29 +46,20 @@ const searchBtn = document.getElementById("search-btn");
 
 search.addEventListener("input", () => {
   const query = search.value.toLowerCase();
-  const filtered = recipes.filter(recipe => {
-    const nameMatch = recipe.name.toLowerCase().includes(query);
-    const ingredientMatch = (recipe.ingredients || []).some(i =>
-      i.toLowerCase().includes(query)
-    );
-    return nameMatch || ingredientMatch;
-  });
-
+  const filtered = recipes.filter(recipe =>
+    recipe.name.toLowerCase().includes(query)
+  );
   renderRecipes(filtered);
 });
 
 searchBtn.addEventListener("click", () => {
   const query = search.value.toLowerCase();
-  const filtered = recipes.filter(recipe => {
-    const nameMatch = recipe.name.toLowerCase().includes(query);
-    const ingredientMatch = (recipe.ingredients || []).some(i =>
-      i.toLowerCase().includes(query)
-    );
-    return nameMatch || ingredientMatch;
-  });
-
+  const filtered = recipes.filter(recipe =>
+    recipe.name.toLowerCase().includes(query)
+  );
   renderRecipes(filtered);
 });
+
 
 // -----------------------------
 // UPLOAD (TEXT + PDF)
