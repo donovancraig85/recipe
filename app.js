@@ -18,10 +18,37 @@ function renderRecipes(list) {
   container.innerHTML = "";
 
   list.forEach(recipe => {
-    const li = document.createElement("li")
-    li.textContent = recipe.name;
+    const li = document.createElement("li");
+
+    // recipe name
+    const nameSpan = document.createElement("span");
+    nameSpan.textContent = recipe.name;
+
+    //delete button
+    const deleteBtn = document.createElement("button");
+    deleteBtn.textContent = "Delete";
+    deleteBtn.style.marginLeft = "10px";
+    deleteBtn.addEventListener("click", () => {
+      deleteRecipe(recipe.id);
+    });
+
+    li.appendChild(nameSpan);
+    li.appendChild(deleteBtn);
     container.appendChild(li);
   });
+}
+
+function deleteRecipe(id) {
+  const recipe = recipes.find(r => r.id === id);
+  if (!recipe) return;
+
+  const confirmed = confirm(`Delete "${recipe.name}"?`);
+
+  if (confirmed) {
+    const index = recipes.findIndex(r => r.id === id);
+    recipes.splice(index, 1);
+    renderRecipes(recipes);
+  }
 }
 
 //initial load
@@ -92,3 +119,5 @@ uploadbtn.addEventListener("click", () => {
 
   reader.readAsText(file);
 });
+
+
