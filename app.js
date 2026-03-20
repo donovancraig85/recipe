@@ -25,6 +25,7 @@ function loadRecipes() {
   });
 }
 
+// Render recipe list
 function renderRecipes(list) {
   const container = document.getElementById("recipe-list");
   container.innerHTML = "";
@@ -42,7 +43,7 @@ function renderRecipes(list) {
   });
 }
 
-// Initial load
+// Initial load (ONLY ONCE)
 loadRecipes();
 
 // -----------------------------
@@ -215,7 +216,11 @@ function processRecipeText(text, name) {
       alert("Recipe uploaded successfully!");
       uploadName.value = "";
       fileInput.value = "";
-      loadRecipes();
+
+      // IMPORTANT FIX:
+      // Do NOT call loadRecipes() — it overwrites search results.
+      recipes.push(newRecipe);
+      renderRecipes(recipes);
     })
     .catch(err => {
       console.error("Error uploading recipe:", err);
