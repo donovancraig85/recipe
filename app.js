@@ -16,23 +16,43 @@ const recipes = [
 function renderRecipes(list) {
   const container = document.getElementById("recipe-list");
   container.innerHTML = "";
+const recipes = [
+  {id: 1, 
+  name: "Chicken Alfredo",
+  ingredients: ["chicken","pasta","brocolli","cream","garlic"]},
+  {id: 2,
+  name: "Beef Tacos",
+  ingredients: ["Ground beef", "taco shells", "taco seasoning"]},
+  {id: 3,
+  name: "cereal",
+  ingredients: ["ceral of choice", "milk"]},
+  {id: 4,
+  name: "Cake",
+  ingredients: ["eggs", "milk"]}
+];
+
+function renderRecipes(list) {
+  const container = document.getElementById("recipe-list");
+  container.innerHTML = "";
 
   list.forEach(recipe => {
     const li = document.createElement("li");
 
-    // recipe name
-    const nameSpan = document.createElement("span");
-    nameSpan.textContent = recipe.name;
+   
+    const link = document.createElement("a");
+    link.textContent = recipe.name;
+    link.href = `recipe.html?id=${recipe.id}`;
 
-    //delete button
+    // delete button
     const deleteBtn = document.createElement("button");
     deleteBtn.textContent = "Delete";
     deleteBtn.style.marginLeft = "10px";
-    deleteBtn.addEventListener("click", () => {
+    deleteBtn.addEventListener("click", (event) => {
+      event.stopPropagation(); // prevent link click
       deleteRecipe(recipe.id);
     });
 
-    li.appendChild(nameSpan);
+    li.appendChild(link);
     li.appendChild(deleteBtn);
     container.appendChild(li);
   });
