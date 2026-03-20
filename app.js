@@ -169,20 +169,15 @@ function readPDF(file, name) {
 function processRecipeText(text, name) {
   const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 0);
 
-  // Extract ingredients (first comma-separated line)
-  const ingredientsLine = lines.find(l => l.includes(","));
-  const ingredients = ingredientsLine
-    ? ingredientsLine.split(",").map(i => i.trim())
-    : [];
+// Extract ingredients: lines starting with • or -
+const ingredients = lines.filter(l =>
+  l.startsWith("•") || l.startsWith("-")
+).map(l => l.replace(/^•\s*|-/, "").trim());
 
-  // Everything else becomes directions
-  const directions = lines.filter(l => l !== ingredientsLine);
-
-  const newRecipe = {
-    name,
-    ingredients,
-    directions
-  };
+// Directions = everything else except ingredients
+const directions = lines.filter(l =>
+  !l.startsWith("•") && !l.startsWith("-")
+);
 
   db.collection("recipes").add(newRecipe)
     .then(() => {
