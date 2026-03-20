@@ -1,3 +1,5 @@
+console.log("APP.JS STARTED");
+
 // -----------------------------
 // GLOBALS
 // -----------------------------
@@ -59,6 +61,8 @@ searchBtn.addEventListener("click", () => {
   );
   renderRecipes(filtered);
 });
+
+console.log("SEARCH LISTENERS ATTACHED");
 
 
 // -----------------------------
