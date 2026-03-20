@@ -1,5 +1,3 @@
-console.log("APP.JS STARTED");
-
 // -----------------------------
 // GLOBALS
 // -----------------------------
@@ -41,29 +39,56 @@ function renderRecipes(list) {
 loadRecipes();
 
 // -----------------------------
-// SEARCH
+// FUZZY MATCHING HELPERS
+// -----------------------------
+function levenshteinDistance(a, b) {
+  const matrix = Array.from({ length: b.length + 1 }, (_, i) => [i]);
+  for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      const cost = b[i - 1] === a[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,      // deletion
+        matrix[i][j - 1] + 1,      // insertion
+        matrix[i - 1][j - 1] + cost // substitution
+      );
+    }
+  }
+  return matrix[b.length][a.length];
+}
+
+function fuzzyMatch(text, query) {
+  text = text.toLowerCase();
+  query = query.toLowerCase();
+
+  // Exact or partial match
+  if (text.includes(query)) return true;
+
+  // Fuzzy: allow small typos
+  const maxDistance = 2;
+  return levenshteinDistance(text, query) <= maxDistance;
+}
+
+// -----------------------------
+// SEARCH (FUZZY NAME MATCHING)
 // -----------------------------
 const search = document.getElementById("search");
 const searchBtn = document.getElementById("search-btn");
 
-search.addEventListener("input", () => {
+function runSearch() {
   const query = search.value.toLowerCase();
-  const filtered = recipes.filter(recipe =>
-    recipe.name.toLowerCase().includes(query)
-  );
+
+  const filtered = recipes.filter(recipe => {
+    const name = typeof recipe.name === "string" ? recipe.name : "";
+    return fuzzyMatch(name, query);
+  });
+
   renderRecipes(filtered);
-});
+}
 
-searchBtn.addEventListener("click", () => {
-  const query = search.value.toLowerCase();
-  const filtered = recipes.filter(recipe =>
-    recipe.name.toLowerCase().includes(query)
-  );
-  renderRecipes(filtered);
-});
-
-console.log("SEARCH LISTENERS ATTACHED");
-
+search.addEventListener("input", runSearch);
+searchBtn.addEventListener("click", runSearch);
 
 // -----------------------------
 // UPLOAD (TEXT + PDF)
@@ -115,19 +140,24 @@ function readPDF(file, name) {
   const reader = new FileReader();
 
   reader.onload = async () => {
-    const typedArray = new Uint8Array(reader.result);
-    const pdf = await pdfjsLib.getDocument(typedArray).promise;
+    try {
+      const typedArray = new Uint8Array(reader.result);
+      const pdf = await pdfjsLib.getDocument(typedArray).promise;
 
-    let fullText = "";
+      let fullText = "";
 
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      const strings = content.items.map(item => item.str);
-      fullText += strings.join(" ") + "\n";
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const strings = content.items.map(item => item.str);
+        fullText += strings.join(" ") + "\n";
+      }
+
+      processRecipeText(fullText, name);
+    } catch (err) {
+      console.error("PDF READ ERROR:", err);
+      alert("Could not read PDF. Please try a different file.");
     }
-
-    processRecipeText(fullText, name);
   };
 
   reader.readAsArrayBuffer(file);
