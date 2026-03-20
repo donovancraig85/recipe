@@ -99,9 +99,41 @@ function runSearch() {
   renderRecipes(filtered);
 }
 
-search.addEventListener("input", runSearch);
-searchBtn.addEventListener("click", runSearch);
+searchBtn.addEventListener("click", () => {
+  console.log("SEARCH BUTTON CLICKED!");
+  runSearch();
+});
 
+function runSearch() {
+  const query = search.value.toLowerCase();
+
+  const filtered = recipes.filter(recipe => {
+    const name = typeof recipe.name === "string" ? recipe.name : "";
+    const titleLine =
+      Array.isArray(recipe.directions) && recipe.directions.length > 0
+        ? recipe.directions[0]
+        : "";
+
+    return fuzzyMatch(name, query) || fuzzyMatch(titleLine, query);
+  });
+
+  console.log("SEARCH RUNNING. Query:", query);
+  console.log("FILTERED RESULTS:", filtered);
+
+  // ⭐ If exactly one match → go straight to recipe card
+  if (filtered.length === 1) {
+    window.location.href = `recipe.html?id=${filtered[0].id}`;
+    return;
+  }
+
+  // ⭐ If multiple matches → show filtered list
+  
+
+  console.log("SEARCH RUNNING. Query:", query);
+  console.log("FILTERED RESULTS:", filtered);
+
+  renderRecipes(filtered);
+}
 // -----------------------------
 // UPLOAD (TEXT + PDF)
 // -----------------------------
