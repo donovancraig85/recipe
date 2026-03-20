@@ -7,10 +7,21 @@
 
   <a href="index.html">← Back to Recipes</a>
 
-  <h1 id="recipe-name"></h1>
-  <h3>Ingredients</h3>
-  <ul id="ingredient-list"></ul>
+  <div class="recipe-card">
+    <h1 id="recipe-name"></h1>
 
+    <h3>Ingredients</h3>
+    <ul id="ingredient-list"></ul>
+
+    <h3>Directions</h3>
+    <ol id="directions-list"></ol>
+
+    <button id="delete-btn" class="delete-btn">Delete Recipe</button>
+    <button id="pdf-btn">Save as PDF</button>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="recipe.js" defer></script>
 </body>
+
 </html>

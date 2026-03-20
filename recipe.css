@@ -1,0 +1,80 @@
+/* Center the recipe card on the page */
+body {
+  font-family: Arial, sans-serif;
+  background: #f7f7f7;
+  margin: 0;
+  padding: 20px;
+}
+
+/* Back link */
+a {
+  text-decoration: none;
+  color: #333;
+  font-size: 16px;
+  margin-bottom: 20px;
+  display: inline-block;
+}
+
+/* Main recipe card container */
+.recipe-card {
+  max-width: 700px;
+  margin: 20px auto;
+  background: #ffffff;
+  padding: 30px;
+  border-radius: 16px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+}
+
+/* Recipe title */
+#recipe-name {
+  font-size: 32px;
+  margin-bottom: 10px;
+  color: #222;
+}
+
+/* Section headers */
+h3 {
+  margin-top: 25px;
+  margin-bottom: 10px;
+  color: #444;
+  font-size: 22px;
+}
+
+/* Ingredient + direction lists */
+#ingredient-list,
+#directions-list {
+  padding-left: 20px;
+  line-height: 1.6;
+  font-size: 18px;
+}
+
+/* Buttons container */
+button {
+  padding: 12px 18px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  margin-right: 10px;
+}
+
+/* Delete button */
+#delete-btn {
+  background: #d9534f;
+  color: white;
+}
+
+#delete-btn:hover {
+  background: #c9302c;
+}
+
+/* PDF button */
+#pdf-btn {
+  background: #4CAF50;
+  color: white;
+}
+
+#pdf-btn:hover {
+  background: #45a049;
+}
+
