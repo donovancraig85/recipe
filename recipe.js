@@ -1,51 +1,54 @@
-const recipes = [
-  {
-    id: 1,
-    name: "Chicken Alfredo",
-    ingredients: ["chicken","pasta","brocolli","cream","garlic"],
-    directions: [
-      "Boil pasta",
-      "Cook chicken",
-      "Mix cream and garlic",
-      "Combine everything"
-    ]
-  }
-];
+// Assumes firebase app + db are already initialized in recipe.html
 
 const params = new URLSearchParams(window.location.search);
-const id = Number(params.get("id"));
+const id = params.get("id"); // Firestore doc id (string)
 
-const recipe = recipes.find(r => r.id === id);
+let currentRecipe = null;
 
-if (recipe) {
-  document.getElementById("recipe-name").textContent = recipe.name;
+// Load single recipe from Firestore
+db.collection("recipes").doc(id).get()
+  .then(doc => {
+    if (!doc.exists) {
+      document.getElementById("recipe-name").textContent = "Recipe not found";
+      return;
+    }
 
-  // INGREDIENTS
-  const ul = document.getElementById("ingredient-list");
-  recipe.ingredients.forEach(i => {
-    const li = document.createElement("li");
-    li.textContent = i;
-    ul.appendChild(li);
+    const recipe = doc.data();
+    currentRecipe = recipe;
+
+    document.getElementById("recipe-name").textContent = recipe.name;
+
+    // Ingredients
+    const ul = document.getElementById("ingredient-list");
+    (recipe.ingredients || []).forEach(i => {
+      const li = document.createElement("li");
+      li.textContent = i;
+      ul.appendChild(li);
+    });
+
+    // Directions
+    const directionsList = document.getElementById("directions-list");
+    (recipe.directions || []).forEach(step => {
+      const li = document.createElement("li");
+      li.textContent = step;
+      directionsList.appendChild(li);
+    });
+  })
+  .catch(err => {
+    console.error("Error loading recipe:", err);
   });
 
-  // DIRECTIONS
-  const directionsList = document.getElementById("directions-list");
-  recipe.directions.forEach(step => {
-    const li = document.createElement("li");
-    li.textContent = step;
-    directionsList.appendChild(li);
-  });
-}
-
-// PDF BUTTON
+// PDF button
 const pdfBtn = document.getElementById("pdf-btn");
 
 pdfBtn.addEventListener("click", () => {
-  const recipeCard = document.querySelector("body"); // capture whole page
+  if (!currentRecipe) return;
+
+  const recipeCard = document.querySelector(".recipe-card") || document.body;
 
   const options = {
     margin: 10,
-    filename: `${recipe.name}.pdf`,
+    filename: `${currentRecipe.name}.pdf`,
     image: { type: "jpeg", quality: 0.98 },
     html2canvas: { scale: 2 },
     jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
@@ -54,17 +57,22 @@ pdfBtn.addEventListener("click", () => {
   html2pdf().set(options).from(recipeCard).save();
 });
 
-// DELETE BUTTON
+// Delete button
 const deleteBtn = document.getElementById("delete-btn");
 
 deleteBtn.addEventListener("click", () => {
-  const confirmed = confirm(`Delete "${recipe.name}"?`);
+  if (!currentRecipe) return;
 
-  if (confirmed) {
-    const index = recipes.findIndex(r => r.id === recipe.id);
-    recipes.splice(index, 1);
+  const confirmed = confirm(`Delete "${currentRecipe.name}"?`);
 
-    // redirect back to homepage
-    window.location.href = "index.html";
-  }
+  if (!confirmed) return;
+
+  db.collection("recipes").doc(id).delete()
+    .then(() => {
+      window.location.href = "index.html";
+    })
+    .catch(err => {
+      console.error("Error deleting recipe:", err);
+      alert("Error deleting recipe. Check console for details.");
+    });
 });
