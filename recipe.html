@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html>
 <head>
   <title>Recipe</title>
@@ -7,6 +6,9 @@
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+  <!-- PDF Export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
   <style>
     body {
@@ -37,6 +39,31 @@
       color: #0077cc;
       font-size: 16px;
     }
+
+    .top-buttons {
+      margin-bottom: 20px;
+    }
+
+    .top-buttons button,
+    #delete-btn {
+      padding: 10px 15px;
+      margin-right: 10px;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+      font-size: 14px;
+    }
+
+    #pdf-btn {
+      background-color: #0077cc;
+      color: white;
+    }
+
+    #delete-btn {
+      background-color: #cc0000;
+      color: white;
+      margin-top: 30px;
+    }
   </style>
 </head>
 
@@ -44,13 +71,23 @@
 
   <a href="index.html" class="back-link">← Back to Recipes</a>
 
-  <h1 id="recipe-title">Loading...</h1>
+  <!-- Top Buttons -->
+  <div class="top-buttons">
+    <button id="pdf-btn">Save as PDF</button>
+  </div>
 
-  <h2>Ingredients</h2>
-  <ul id="ingredients-list"></ul>
+  <div id="recipe-card">
+    <h1 id="recipe-title">Loading...</h1>
 
-  <h2>Directions</h2>
-  <ol id="directions-list"></ol>
+    <h2>Ingredients</h2>
+    <ul id="ingredients-list"></ul>
+
+    <h2>Directions</h2>
+    <ol id="directions-list"></ol>
+  </div>
+
+  <!-- Delete Button -->
+  <button id="delete-btn">Delete Recipe</button>
 
   <script>
     // Firebase config
@@ -108,6 +145,33 @@
         document.getElementById("recipe-title").textContent = "Error loading recipe.";
       });
     }
+
+    // -----------------------------
+    // SAVE AS PDF
+    // -----------------------------
+    document.getElementById("pdf-btn").addEventListener("click", () => {
+      const element = document.getElementById("recipe-card");
+      const title = document.getElementById("recipe-title").textContent || "recipe";
+
+      html2pdf().from(element).save(`${title}.pdf`);
+    });
+
+    // -----------------------------
+    // DELETE RECIPE
+    // -----------------------------
+    document.getElementById("delete-btn").addEventListener("click", () => {
+      if (!confirm("Are you sure you want to delete this recipe?")) return;
+
+      db.collection("recipes").doc(recipeId).delete()
+        .then(() => {
+          alert("Recipe deleted.");
+          window.location.href = "index.html";
+        })
+        .catch(err => {
+          console.error("Error deleting recipe:", err);
+          alert("Error deleting recipe.");
+        });
+    });
   </script>
 
 </body>
