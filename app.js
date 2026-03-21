@@ -83,12 +83,7 @@ function runSearch() {
 
   const filtered = recipes.filter(recipe => {
     const name = recipe.name || "";
-    const titleLine =
-      Array.isArray(recipe.directions) && recipe.directions.length > 0
-        ? recipe.directions[0]
-        : "";
-
-    return fuzzyMatch(name, query) || fuzzyMatch(titleLine, query);
+    return fuzzyMatch(name, query);
   });
 
   if (filtered.length === 1) {
@@ -100,25 +95,29 @@ function runSearch() {
 }
 
 search.addEventListener("input", runSearch);
-searchBtn.addEventListener("click", () => {
-  runSearch();
-});
+searchBtn.addEventListener("click", () => runSearch());
 
 // -----------------------------
-// AUTO FORMATTER (SECTION-BASED)
+// AUTO FORMATTER (NO BULLETS, NO NUMBERS)
 // -----------------------------
 function autoFormatRecipe(raw, name) {
+  // Normalize and strip bullets + numbering
   let lines = raw
     .replace(/\r/g, "\n")
     .split("\n")
     .map(l => l.trim())
-    .filter(l => l.length > 0);
+    .filter(l => l.length > 0)
+    .map(l =>
+      l
+        .replace(/^[-•*]\s*/, "")        // remove bullets
+        .replace(/^\d+[\.\-\)\:]\s*/, "") // remove numbering
+    );
 
   if (lines.length === 0) {
     return { title: name, ingredients: [], directions: [] };
   }
 
-  // Try to find section indices by label (anywhere in line)
+  // Detect section labels
   let ingredientsStart = -1;
   let directionsStart = -1;
 
@@ -140,27 +139,24 @@ function autoFormatRecipe(raw, name) {
   let ingredients = [];
   let directions = [];
 
+  // If labeled sections exist
   if (ingredientsStart !== -1) {
-    const ingFrom = ingredientsStart + 1;
-    const ingTo = directionsStart !== -1 ? directionsStart : lines.length;
+    const start = ingredientsStart + 1;
+    const end = directionsStart !== -1 ? directionsStart : lines.length;
 
-    for (let i = ingFrom; i < ingTo; i++) {
-      const line = lines[i];
-      if (!line) continue;
-      ingredients.push("• " + line.replace(/^[-•]\s*/, ""));
+    for (let i = start; i < end; i++) {
+      if (lines[i]) ingredients.push(lines[i]);
     }
   }
 
   if (directionsStart !== -1) {
-    const dirFrom = directionsStart + 1;
-    for (let i = dirFrom; i < lines.length; i++) {
-      const line = lines[i];
-      if (!line) continue;
-      directions.push(line.replace(/^\d+[\).\s]+/, "")); // strip leading "1. "
+    const start = directionsStart + 1;
+    for (let i = start; i < lines.length; i++) {
+      if (lines[i]) directions.push(lines[i]);
     }
   }
 
-  // Fallback if sections not found or empty
+  // Fallback if no sections found
   if (ingredients.length === 0 && directions.length === 0) {
     const ingredientKeywords = [
       "cup", "tsp", "tbsp", "teaspoon", "tablespoon",
@@ -172,23 +168,21 @@ function autoFormatRecipe(raw, name) {
       const lower = line.toLowerCase();
       const looksLikeIngredient =
         ingredientKeywords.some(k => lower.includes(k)) ||
-        /^[0-9]/.test(line) ||
-        line.includes(",");
+        line.includes(",") ||
+        /^[0-9]/.test(line);
 
       if (looksLikeIngredient) {
-        ingredients.push("• " + line.replace(/^[-•]\s*/, ""));
+        ingredients.push(line);
       } else {
         directions.push(line);
       }
     }
   }
 
-  const numberedDirections = directions.map((step, i) => `${i + 1}. ${step}`);
-
   return {
     title: name,
     ingredients,
-    directions: numberedDirections
+    directions
   };
 }
 
@@ -279,7 +273,6 @@ function processRecipeText(text, name) {
   const newRecipe = {
     name,
     ingredients: formatted.ingredients,
-    // IMPORTANT: do NOT inject title into directions anymore
     directions: formatted.directions
   };
 
