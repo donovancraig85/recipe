@@ -2,10 +2,21 @@
 <head>
   <title>My Recipes</title>
   <link rel="stylesheet" href="style.css">
+
+  <!-- PDF support -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
+  </script>
+
+  <!-- DOCX support -->
   <script src="https://unpkg.com/mammoth/mammoth.browser.min.js"></script>
+
+  <!-- OCR for images -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
+
 <body>
 
   <h1>Recipes</h1>
@@ -20,7 +31,6 @@
   <input type="file" id="recipe-file">
   <button id="upload-btn">Upload Recipe</button>
 
-
   <!-- Recipe List -->
   <div id="recipe-list" class="card-grid"></div>
 
@@ -28,32 +38,22 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-<script>
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
-</script>
-
   <!-- Firebase Config -->
   <script>
-   const firebaseConfig = {
-    apiKey: "AIzaSyD-ZVROybS5c3O6kJhe8LVcXNZ0KbYTmvg",
-    authDomain: "recipes-83727.firebaseapp.com",
-    projectId: "recipes-83727",
-    storageBucket: "recipes-83727.appspot.com",
-    messagingSenderId: "97445031584",
-    appId: "1:97445031584:web:a463b119a272531f51a3c5",
-    measurementId: "G-4LERX7EWB7"
-  };
-
+    const firebaseConfig = {
+      apiKey: "AIzaSyD-ZVROybS5c3O6kJhe8LVcXNZ0KbYTmvg",
+      authDomain: "recipes-83727.firebaseapp.com",
+      projectId: "recipes-83727",
+      storageBucket: "recipes-83727.appspot.com",
+      messagingSenderId: "97445031584",
+      appId: "1:97445031584:web:a463b119a272531f51a3c5",
+      measurementId: "G-4LERX7EWB7"
+    };
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
   </script>
 
-
-
-  
   <!-- App Logic -->
   <script src="app.js"></script>
 
