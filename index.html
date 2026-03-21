@@ -16,6 +16,24 @@
 
   <!-- OCR for images -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+  <style>
+    .search-dropdown {
+      background: white;
+      border: 1px solid #ccc;
+      max-width: 300px;
+      position: absolute;
+      z-index: 10;
+      display: none;
+    }
+    .search-dropdown div {
+      padding: 8px;
+      cursor: pointer;
+    }
+    .search-dropdown div:hover {
+      background: #f0f0f0;
+    }
+  </style>
 </head>
 
 <body>
@@ -25,6 +43,9 @@
   <!-- Search -->
   <input type="text" id="search" placeholder="Search recipes...">
   <button id="search-btn">Search</button>
+
+  <!-- Live search dropdown -->
+  <div id="search-results" class="search-dropdown"></div>
 
   <!-- Upload -->
   <h3>Upload Recipe File</h3>

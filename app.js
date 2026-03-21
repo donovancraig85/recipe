@@ -91,25 +91,55 @@ function fuzzyMatch(text, query) {
 }
 
 // -----------------------------
-// SEARCH → DIRECT NAVIGATION
+// SEARCH + LIVE DROPDOWN
 // -----------------------------
 const search = document.getElementById("search");
 const searchBtn = document.getElementById("search-btn");
+const searchResults = document.getElementById("search-results");
 
-function runSearch() {
-  const query = search.value.toLowerCase();
+function updateSearchDropdown(list) {
+  searchResults.innerHTML = "";
 
-  const filtered = recipes.filter(recipe => {
-    const name = recipe.name || "";
-    return fuzzyMatch(name, query);
-  });
-
-  if (filtered.length === 1) {
-    window.location.href = `recipe.html?id=${encodeURIComponent(filtered[0].id)}`;
+  if (list.length === 0) {
+    searchResults.style.display = "none";
     return;
   }
 
+  list.slice(0, 8).forEach(recipe => {
+    const item = document.createElement("div");
+    item.textContent = recipe.name;
+    item.addEventListener("click", () => {
+      window.location.href = `recipe.html?id=${encodeURIComponent(recipe.id)}`;
+    });
+    searchResults.appendChild(item);
+  });
+
+  searchResults.style.display = "block";
+}
+
+function runSearch() {
+  const query = search.value.toLowerCase().trim();
+
+  if (!query) {
+    renderRecipes(recipes);
+    searchResults.style.display = "none";
+    return;
+  }
+
+  const filtered = recipes.filter(recipe => {
+    const name = recipe.name || "";
+    const ingredients = (recipe.ingredients || []).join(" ").toLowerCase();
+    const directions = (recipe.directions || []).join(" ").toLowerCase();
+
+    return (
+      fuzzyMatch(name, query) ||
+      ingredients.includes(query) ||
+      directions.includes(query)
+    );
+  });
+
   renderRecipes(filtered);
+  updateSearchDropdown(filtered);
 }
 
 search.addEventListener("input", runSearch);
