@@ -98,10 +98,9 @@ search.addEventListener("input", runSearch);
 searchBtn.addEventListener("click", () => runSearch());
 
 // -----------------------------
-// AUTO FORMATTER (NO BULLETS, NO NUMBERS)
+// UNIVERSAL AUTO FORMATTER
 // -----------------------------
 function autoFormatRecipe(raw, name) {
-  // Normalize and strip bullets + numbering
   let lines = raw
     .replace(/\r/g, "\n")
     .split("\n")
@@ -117,7 +116,6 @@ function autoFormatRecipe(raw, name) {
     return { title: name, ingredients: [], directions: [] };
   }
 
-  // Detect section labels
   let ingredientsStart = -1;
   let directionsStart = -1;
 
@@ -139,11 +137,9 @@ function autoFormatRecipe(raw, name) {
   let ingredients = [];
   let directions = [];
 
-  // If labeled sections exist
   if (ingredientsStart !== -1) {
     const start = ingredientsStart + 1;
     const end = directionsStart !== -1 ? directionsStart : lines.length;
-
     for (let i = start; i < end; i++) {
       if (lines[i]) ingredients.push(lines[i]);
     }
@@ -156,7 +152,6 @@ function autoFormatRecipe(raw, name) {
     }
   }
 
-  // Fallback if no sections found
   if (ingredients.length === 0 && directions.length === 0) {
     const ingredientKeywords = [
       "cup", "tsp", "tbsp", "teaspoon", "tablespoon",
@@ -187,7 +182,7 @@ function autoFormatRecipe(raw, name) {
 }
 
 // -----------------------------
-// UPLOAD HANDLING
+// UNIVERSAL FILE UPLOAD HANDLER
 // -----------------------------
 const fileInput = document.getElementById("recipe-file");
 const uploadbtn = document.getElementById("upload-btn");
@@ -197,71 +192,83 @@ uploadbtn.addEventListener("click", () => {
   const file = fileInput.files[0];
   const name = uploadName.value.trim();
 
-  if (!name) {
-    alert("Please enter a recipe name.");
-    return;
-  }
+  if (!name) return alert("Please enter a recipe name.");
+  if (!file) return alert("Please select a file first.");
 
-  if (!file) {
-    alert("Please select a file first.");
-    return;
-  }
+  const ext = file.name.split(".").pop().toLowerCase();
 
-  const extension = file.name.split(".").pop().toLowerCase();
+  if (["txt"].includes(ext)) return readTextFile(file, name);
+  if (["pdf"].includes(ext)) return readPDF(file, name);
+  if (["docx"].includes(ext)) return readDocx(file, name);
+  if (["html", "htm"].includes(ext)) return readHTML(file, name);
+  if (["png", "jpg", "jpeg", "webp", "gif"].includes(ext)) return readImageOCR(file, name);
 
-  if (extension === "docx") {
-    alert("DOCX files are not supported. Please upload a PDF or plain text file.");
-    return;
-  }
-
-  if (extension === "pdf") {
-    readPDF(file, name);
-  } else {
-    readTextFile(file, name);
-  }
+  alert("Unsupported file type.");
 });
 
 // -----------------------------
-// READ TEXT FILE
+// TEXT FILE
 // -----------------------------
 function readTextFile(file, name) {
   const reader = new FileReader();
-
-  reader.onload = () => {
-    processRecipeText(reader.result, name);
-  };
-
+  reader.onload = () => processRecipeText(reader.result, name);
   reader.readAsText(file);
 }
 
 // -----------------------------
-// READ PDF FILE
+// PDF FILE
 // -----------------------------
 function readPDF(file, name) {
   const reader = new FileReader();
-
   reader.onload = async () => {
-    try {
-      const typedArray = new Uint8Array(reader.result);
-      const pdf = await pdfjsLib.getDocument(typedArray).promise;
+    const typedArray = new Uint8Array(reader.result);
+    const pdf = await pdfjsLib.getDocument(typedArray).promise;
 
-      let fullText = "";
-
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        const strings = content.items.map(item => item.str);
-        fullText += strings.join("\n") + "\n";
-      }
-
-      processRecipeText(fullText, name);
-    } catch (err) {
-      console.error("PDF READ ERROR:", err);
-      alert("Could not read PDF. Please try a different file.");
+    let fullText = "";
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const strings = content.items.map(item => item.str);
+      fullText += strings.join("\n") + "\n";
     }
-  };
 
+    processRecipeText(fullText, name);
+  };
   reader.readAsArrayBuffer(file);
+}
+
+// -----------------------------
+// DOCX FILE
+// -----------------------------
+function readDocx(file, name) {
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const result = await mammoth.extractRawText({ arrayBuffer: reader.result });
+    processRecipeText(result.value, name);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// -----------------------------
+// HTML FILE
+// -----------------------------
+function readHTML(file, name) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const div = document.createElement("div");
+    div.innerHTML = reader.result;
+    processRecipeText(div.innerText, name);
+  };
+  reader.readAsText(file);
+}
+
+// -----------------------------
+// IMAGE OCR
+// -----------------------------
+function readImageOCR(file, name) {
+  Tesseract.recognize(file, "eng").then(result => {
+    processRecipeText(result.data.text, name);
+  });
 }
 
 // -----------------------------
