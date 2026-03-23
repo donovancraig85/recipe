@@ -160,52 +160,101 @@ searchBtn.addEventListener("click", () => runSearch());
 function autoFormatRecipe(raw, name) {
   raw = cleanText(raw);
 
+  // Split into lines
   let lines = raw
     .split("\n")
     .map(l => l.trim())
     .filter(l => l.length > 0);
 
+  // -----------------------------
+  // METADATA EXTRACTION
+  // -----------------------------
+  function extractMetadata(lines) {
+    let servings = null;
+    let prepTime = null;
+    let cookTime = null;
+    let totalTime = null;
+
+    for (let line of lines) {
+      const lower = line.toLowerCase();
+
+      // Servings
+      if (lower.includes("serv")) {
+        const match = lower.match(/(\d+)\s*serv/i);
+        if (match) servings = match[1];
+      }
+
+      // Prep Time
+      if (lower.includes("prep")) {
+        const match = line.match(/prep[^0-9]*([\d\s\w]+)/i);
+        if (match) prepTime = match[1].trim();
+      }
+
+      // Cook Time
+      if (lower.includes("cook")) {
+        const match = line.match(/cook[^0-9]*([\d\s\w]+)/i);
+        if (match) cookTime = match[1].trim();
+      }
+
+      // Total Time
+      if (lower.includes("total")) {
+        const match = line.match(/total[^0-9]*([\d\s\w]+)/i);
+        if (match) totalTime = match[1].trim();
+      }
+    }
+
+    return { servings, prepTime, cookTime, totalTime };
+  }
+
+  const metadata = extractMetadata(lines);
+
+  // -----------------------------
+  // SECTION DETECTION
+  // -----------------------------
+  function detectSection(line) {
+    const cleaned = line
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
+
+    // Reject lines with more than one word
+    if (cleaned.split(" ").length > 1) return null;
+
+    const headers = [
+      "ingredients",
+      "ingredients:",
+      "directions",
+      "directions:",
+      "notes",
+      "notes:",
+      "tips",
+      "tips:",
+      "misc",
+      "misc:"
+    ];
+
+    if (headers.includes(cleaned)) {
+      return cleaned.replace(":", "");
+    }
+
+    return null;
+  }
+
+  // -----------------------------
+  // SECTION BUCKETS
+  // -----------------------------
   let narrative = [];
   let ingredients = [];
   let directions = [];
   let notes = [];
   let tips = [];
-  let serving = [];
   let misc = [];
 
-  let current = "narrative";
+  let current = "narrative"; // default until first real header
 
- function detectSection(line) {
-  const cleaned = line
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
-
-
-  if (cleaned.split(" ").length > 1) return null;
-  const headers = [
-    "ingredients",
-    "ingredients:",
-    "directions",
-    "directions:",
-    "notes",
-    "notes:",
-    "tips",
-    "tips:",
-    "serving",
-    "serving:",
-    "misc",
-    "misc:"
-  ];
-
-  if (headers.includes(cleaned)) {
-    return cleaned.replace(":", "");
-  }
-
-  return null;
-}
-
-
+  // -----------------------------
+  // MAIN PARSE LOOP
+  // -----------------------------
   for (let line of lines) {
     const section = detectSection(line);
 
@@ -230,26 +279,28 @@ function autoFormatRecipe(raw, name) {
       case "tips":
         tips.push(line);
         break;
-      case "serving":
-        serving.push(line);
-        break;
       case "misc":
         misc.push(line);
         break;
     }
   }
 
+  // -----------------------------
+  // RETURN STRUCTURED RECIPE
+  // -----------------------------
   return {
     narrative,
     ingredients,
     directions,
     notes,
     tips,
-    serving,
-    misc
+    misc,
+    servings: metadata.servings,
+    prepTime: metadata.prepTime,
+    cookTime: metadata.cookTime,
+    totalTime: metadata.totalTime
   };
 }
-
 // -----------------------------
 // FILE UPLOAD HANDLER
 // -----------------------------
