@@ -175,33 +175,35 @@ function autoFormatRecipe(raw, name) {
 
   let current = "narrative";
 
-  function detectSection(line) {
-    const cleaned = line
-      .toLowerCase()
-      .replace(/\s+/g, " ")
-      .trim();
+ function detectSection(line) {
+  const cleaned = line
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
 
-    const headers = [
-      "ingredients",
-      "ingredients:",
-      "directions",
-      "directions:",
-      "notes",
-      "notes:",
-      "tips",
-      "tips:",
-      "serving",
-      "serving:",
-      "misc",
-      "misc:"
-    ];
 
-    if (headers.includes(cleaned)) {
-      return cleaned.replace(":", "");
-    }
+  if (cleaned.split(" ").length > 1) return null;
+  const headers = [
+    "ingredients",
+    "ingredients:",
+    "directions",
+    "directions:",
+    "notes",
+    "notes:",
+    "tips",
+    "tips:",
+    "serving",
+    "serving:",
+    "misc",
+    "misc:"
+  ];
 
-    return null;
+  if (headers.includes(cleaned)) {
+    return cleaned.replace(":", "");
   }
+
+  return null;
+}
 
 
   for (let line of lines) {
