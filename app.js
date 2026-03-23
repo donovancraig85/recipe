@@ -203,20 +203,32 @@ function autoFormatRecipe(raw, name) {
       if (match) totalTime = match[1].trim();
       continue;
     }
+// ------------------------------------
+// SECTION HEADERS
+// ------------------------------------
+if (lower === "ingredients") {
+  mode = "ingredients";
+  continue;
+}
 
-    if (/^\d/.test(line)) {
-      mode = "directions";
-      directions.push(line);
-      continue;
-    }
+if (lower === "directions") {
+  mode = "directions";
+  continue;
+}
 
-    if (mode === "ingredients") {
-      ingredients.push(line);
-      continue;
-    }
+// Numbered lines = directions ONLY if not in ingredients mode
+if (/^\d/.test(line) && mode !== "ingredients") {
+  mode = "directions";
+  directions.push(line);
+  continue;
+}
 
-    narrative.push(line);
-  }
+if (mode === "ingredients") {
+  ingredients.push(line);
+  continue;
+}
+
+narrative.push(line);
 
   return {
     narrative,
