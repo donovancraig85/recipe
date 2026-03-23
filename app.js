@@ -160,6 +160,13 @@ searchBtn.addEventListener("click", () => runSearch());
 function autoFormatRecipe(raw, name) {
   raw = cleanText(raw);
 
+  // Normalize weird unicode, bullets, dashes, etc.
+  raw = raw
+    .replace(/\u00A0/g, " ")      // non-breaking spaces
+    .replace(/\u2013|\u2014/g, "-") // en/em dashes
+    .replace(/\u2022/g, "-")      // bullet •
+    .replace(/\r/g, "");
+
   let lines = raw
     .split("\n")
     .map(l => l.trim())
@@ -175,9 +182,15 @@ function autoFormatRecipe(raw, name) {
   let totalTime = null;
 
   let mode = "narrative";
+  let seenIngredients = false;
+
+  // Helper: normalize header text
+  const normalizeHeader = (txt) =>
+    txt.toLowerCase().replace(/[^a-z]/g, "");
 
   for (let line of lines) {
     const lower = line.toLowerCase();
+    const header = normalizeHeader(line);
 
     // ------------------------------------
     // METADATA
@@ -186,6 +199,7 @@ function autoFormatRecipe(raw, name) {
       const match = lower.match(/(\d+)\s*serv/);
       if (match) servings = match[1];
       mode = "ingredients";
+      seenIngredients = true;
       continue;
     }
 
@@ -208,39 +222,42 @@ function autoFormatRecipe(raw, name) {
     }
 
     // ------------------------------------
-    // SECTION HEADERS (flexible)
+    // SECTION HEADERS
     // ------------------------------------
-    if (lower.startsWith("ingredients")) {
+    if (header === "ingredients") {
       mode = "ingredients";
+      seenIngredients = true;
       continue;
     }
 
-    if (lower.startsWith("directions") || lower.startsWith("instructions")) {
+    if (header === "directions" || header === "instructions") {
       mode = "directions";
       continue;
     }
 
     // ------------------------------------
-    // NUMBERED LINES
+    // AUTO-SWITCH FROM INGREDIENTS → DIRECTIONS
     // ------------------------------------
-
-    // If numbered line appears while in ingredients mode → switch to directions
-    if (/^\d/.test(line) && mode === "ingredients") {
-    mode = "directions";
-    directions.push(line);
-    continue;
+    // If we have seen ingredients and now see a numbered line,
+    // assume directions have started even without a header.
+    if (/^\d+[\).]?\s/.test(line) && seenIngredients && mode !== "directions") {
+      mode = "directions";
+      directions.push(line);
+      continue;
     }
 
-// Numbered lines in directions mode
-if (/^\d/.test(line) && mode === "directions") {
-  directions.push(line);
-  continue;
-}
-
+    // ------------------------------------
+    // NUMBERED LINES (directions)
+    // ------------------------------------
+    if (/^\d+[\).]?\s/.test(line) && mode === "directions") {
+      directions.push(line);
+      continue;
+    }
 
     // ------------------------------------
-    // INGREDIENTS
+    // INGREDIENT LINES
     // ------------------------------------
+    // Ingredient patterns: quantity + unit + item
     if (mode === "ingredients") {
       ingredients.push(line);
       continue;
@@ -265,6 +282,7 @@ if (/^\d/.test(line) && mode === "directions") {
     totalTime
   };
 }
+
 
 // -----------------------------
 // FILE UPLOAD HANDLER
