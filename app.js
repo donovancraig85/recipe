@@ -157,6 +157,9 @@ searchBtn.addEventListener("click", () => runSearch());
 // -----------------------------
 // ADVANCED RECIPE PARSER
 // -----------------------------
+// -----------------------------
+// ADVANCED RECIPE PARSER
+// -----------------------------
 function autoFormatRecipe(raw, name) {
   raw = cleanText(raw);
 
@@ -220,7 +223,10 @@ function autoFormatRecipe(raw, name) {
     // Reject lines with more than one word
     if (cleaned.split(" ").length > 1) return null;
 
+    // REAL section headers only
     const headers = [
+      "narrative",
+      "narrative:",
       "ingredients",
       "ingredients:",
       "directions",
@@ -250,7 +256,7 @@ function autoFormatRecipe(raw, name) {
   let tips = [];
   let misc = [];
 
-  let current = "narrative"; // default until first real header
+  let current = "narrative"; // default until first header
 
   // -----------------------------
   // MAIN PARSE LOOP
@@ -301,6 +307,7 @@ function autoFormatRecipe(raw, name) {
     totalTime: metadata.totalTime
   };
 }
+
 // -----------------------------
 // FILE UPLOAD HANDLER
 // -----------------------------
