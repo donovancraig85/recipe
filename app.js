@@ -223,11 +223,20 @@ function autoFormatRecipe(raw, name) {
     // ------------------------------------
     // NUMBERED LINES
     // ------------------------------------
-    // Only treat numbered lines as directions AFTER directions header
-    if (/^\d/.test(line) && mode === "directions") {
-      directions.push(line);
-      continue;
+
+    // If numbered line appears while in ingredients mode → switch to directions
+    if (/^\d/.test(line) && mode === "ingredients") {
+    mode = "directions";
+    directions.push(line);
+    continue;
     }
+
+// Numbered lines in directions mode
+if (/^\d/.test(line) && mode === "directions") {
+  directions.push(line);
+  continue;
+}
+
 
     // ------------------------------------
     // INGREDIENTS
