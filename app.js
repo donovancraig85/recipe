@@ -157,59 +157,90 @@ searchBtn.addEventListener("click", () => runSearch());
 // -----------------------------
 // ADVANCED RECIPE PARSER
 // -----------------------------
-// -----------------------------
-// ADVANCED RECIPE PARSER
-// -----------------------------
 function autoFormatRecipe(raw, name) {
   raw = cleanText(raw);
 
-  // Split into lines
   let lines = raw
     .split("\n")
     .map(l => l.trim())
     .filter(l => l.length > 0);
 
-  // -----------------------------
-  // METADATA EXTRACTION
-  // -----------------------------
-  function extractMetadata(lines) {
-    let servings = null;
-    let prepTime = null;
-    let cookTime = null;
-    let totalTime = null;
+  let narrative = [];
+  let ingredients = [];
+  let directions = [];
 
-    for (let line of lines) {
-      const lower = line.toLowerCase();
+  let servings = null;
+  let prepTime = null;
+  let cookTime = null;
+  let totalTime = null;
 
-      // Servings
-      if (lower.includes("serv")) {
-        const match = lower.match(/(\d+)\s*serv/i);
-        if (match) servings = match[1];
-      }
+  let mode = "narrative";
 
-      // Prep Time
-      if (lower.includes("prep")) {
-        const match = line.match(/prep[^0-9]*([\d\s\w]+)/i);
-        if (match) prepTime = match[1].trim();
-      }
+  for (let line of lines) {
+    const lower = line.toLowerCase();
 
-      // Cook Time
-      if (lower.includes("cook")) {
-        const match = line.match(/cook[^0-9]*([\d\s\w]+)/i);
-        if (match) cookTime = match[1].trim();
-      }
-
-      // Total Time
-      if (lower.includes("total")) {
-        const match = line.match(/total[^0-9]*([\d\s\w]+)/i);
-        if (match) totalTime = match[1].trim();
-      }
+    // -----------------------------
+    // METADATA DETECTION
+    // -----------------------------
+    if (lower.startsWith("yields") || lower.startsWith("yield")) {
+      const match = lower.match(/(\d+)\s*serv/);
+      if (match) servings = match[1];
+      mode = "ingredients";
+      continue;
     }
 
-    return { servings, prepTime, cookTime, totalTime };
+    if (lower.startsWith("prep")) {
+      const match = line.match(/prep[^0-9]*([\d\s\w]+)/i);
+      if (match) prepTime = match[1].trim();
+      continue;
+    }
+
+    if (lower.startsWith("cook")) {
+      const match = line.match(/cook[^0-9]*([\d\s\w]+)/i);
+      if (match) cookTime = match[1].trim();
+      continue;
+    }
+
+    if (lower.startsWith("total")) {
+      const match = line.match(/total[^0-9]*([\d\s\w]+)/i);
+      if (match) totalTime = match[1].trim();
+      continue;
+    }
+
+    // -----------------------------
+    // DIRECTIONS DETECTION
+    // -----------------------------
+    if (/^\d/.test(line)) {
+      mode = "directions";
+      directions.push(line);
+      continue;
+    }
+
+    // -----------------------------
+    // INGREDIENTS DETECTION
+    // -----------------------------
+    if (mode === "ingredients") {
+      ingredients.push(line);
+      continue;
+    }
+
+    // -----------------------------
+    // DEFAULT: NARRATIVE
+    // -----------------------------
+    narrative.push(line);
   }
 
-  const metadata = extractMetadata(lines);
+  return {
+    narrative,
+    ingredients,
+    directions,
+    servings,
+    prepTime,
+    cookTime,
+    totalTime
+  };
+}
+
 
   // -----------------------------
   // SECTION DETECTION
