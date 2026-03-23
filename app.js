@@ -186,10 +186,10 @@ function autoFormatRecipe(raw, name) {
 
   const normalizeHeader = (txt) =>
   txt
-    .replace(/^\uFEFF/, "")      
-    .replace(/\u00A0/g, " ")     
+    .replace(/[\uFEFF\u200B\u200C\u200D\u2060\u202F]/g, "") 
+    .replace(/\u00A0/g, " ")                               
     .toLowerCase()
-    .replace(/[^a-z]/g, "");    
+    .replace(/[^a-z]/g, "");       
 
 
   for (let line of lines) {
