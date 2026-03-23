@@ -229,68 +229,6 @@ function autoFormatRecipe(raw, name) {
   };
 }
 
-  // -----------------------------
-  // SECTION BUCKETS
-  // -----------------------------
-  let narrative = [];
-  let ingredients = [];
-  let directions = [];
-  let notes = [];
-  let tips = [];
-  let misc = [];
-
-  let current = "narrative"; // default until first header
-
-  // -----------------------------
-  // MAIN PARSE LOOP
-  // -----------------------------
-  for (let line of lines) {
-    const section = detectSection(line);
-
-    if (section) {
-      current = section;
-      continue;
-    }
-
-    switch (current) {
-      case "narrative":
-        narrative.push(line);
-        break;
-      case "ingredients":
-        ingredients.push(line);
-        break;
-      case "directions":
-        directions.push(line);
-        break;
-      case "notes":
-        notes.push(line);
-        break;
-      case "tips":
-        tips.push(line);
-        break;
-      case "misc":
-        misc.push(line);
-        break;
-    }
-  }
-
-  // -----------------------------
-  // RETURN STRUCTURED RECIPE
-  // -----------------------------
-  return {
-    narrative,
-    ingredients,
-    directions,
-    notes,
-    tips,
-    misc,
-    servings: metadata.servings,
-    prepTime: metadata.prepTime,
-    cookTime: metadata.cookTime,
-    totalTime: metadata.totalTime
-  };
-}
-
 // -----------------------------
 // FILE UPLOAD HANDLER
 // -----------------------------
