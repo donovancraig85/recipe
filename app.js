@@ -264,12 +264,18 @@ function normalizeLine(line) {
 }
 
 function detectHeader(line) {
-  const h = line.toLowerCase().replace(/[^a-z]/g, "");
-  if (h === "ingredients") return "ingredients";
-  if (h === "ingredient") return "ingredients";
-  if (h === "directions") return "directions";
-  if (h === "instructions") return "instructions";
-  if (h === "method") return "method";
+  const cleaned = line
+    .normalize("NFKD")
+    .replace(/[\u0000-\u001F\u007F-\u00A0\u2000-\u206F]/g, "") // remove invisible unicode
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+
+  if (cleaned === "ingredients") return "ingredients";
+  if (cleaned === "ingredient") return "ingredients";
+  if (cleaned === "directions") return "directions";
+  if (cleaned === "instructions") return "instructions";
+  if (cleaned === "method") return "method";
+
   return null;
 }
 
