@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
 <head>
   <title>My Recipes</title>
@@ -15,46 +16,68 @@
 
   <!-- OCR for images -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-
-  <style>
-    .search-dropdown {
-      background: white;
-      border: 1px solid #ccc;
-      max-width: 300px;
-      position: absolute;
-      z-index: 10;
-      display: none;
-    }
-    .search-dropdown div {
-      padding: 8px;
-      cursor: pointer;
-    }
-    .search-dropdown div:hover {
-      background: #f0f0f0;
-    }
-  </style>
 </head>
 
 <body>
 
-  <h1>Recipes</h1>
+  <div class="layout">
 
-  <!-- Search -->
-  <input type="text" id="search" placeholder="Search recipes...">
-  <button id="search-btn">Search</button>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <h3>Categories</h3>
+      <ul id="category-list">
+        <li data-cat="Breakfast">Breakfast</li>
+        <li data-cat="Dinner">Dinner</li>
+        <li data-cat="Beverages">Beverages</li>
+        <li data-cat="Soups/Stews">Soups/Stews</li>
+        <li data-cat="Salads">Salads</li>
+        <li data-cat="Side Dishes">Side Dishes</li>
+        <li data-cat="Condiments/Sauces">Condiments/Sauces</li>
+        <li data-cat="Seasonings">Seasonings</li>
+        <li data-cat="Desserts">Desserts</li>
+        <li data-cat="Breads">Breads</li>
+      </ul>
+    </aside>
 
-  <!-- Live search dropdown -->
-  <div id="search-results" class="search-dropdown"></div>
+    <!-- Main Content -->
+    <main class="main-content">
 
-  <!-- Upload -->
-  <h3>Upload Recipe File</h3>
-  <input type="text" id="upload-name" placeholder="Enter recipe name">
-  <input type="text" id="upload-tags" placeholder="Enter tags (optional)">
-  <input type="file" id="recipe-file">
-  <button id="upload-btn">Upload Recipe</button>
+      <h1>Recipes</h1>
 
-  <!-- Recipe List -->
-  <div id="recipe-list" class="card-grid"></div>
+      <!-- Search -->
+      <input type="text" id="search" placeholder="Search recipes...">
+      <button id="search-btn">Search</button>
+
+      <!-- Live search dropdown -->
+      <div id="search-results" class="search-dropdown"></div>
+
+      <!-- Upload -->
+      <h3>Upload Recipe File</h3>
+      <input type="text" id="upload-name" placeholder="Enter recipe name">
+
+      <select id="upload-category">
+        <option value="">Select Category</option>
+        <option>Breakfast</option>
+        <option>Dinner</option>
+        <option>Beverages</option>
+        <option>Soups/Stews</option>
+        <option>Salads</option>
+        <option>Side Dishes</option>
+        <option>Condiments/Sauces</option>
+        <option>Seasonings</option>
+        <option>Desserts</option>
+        <option>Breads</option>
+      </select>
+
+      <input type="file" id="recipe-file">
+      <button id="upload-btn">Upload Recipe</button>
+
+      <!-- Recipe List -->
+      <div id="recipe-list" class="card-grid"></div>
+
+    </main>
+
+  </div>
 
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
