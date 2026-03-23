@@ -172,6 +172,9 @@ function autoFormatRecipe(raw, name) {
     .map(l => l.trim())
     .filter(l => l.length > 0);
 
+console.log("DEBUG RAW LINES:");
+lines.forEach((l, i) => console.log(i, JSON.stringify
+
   let narrative = [];
   let ingredients = [];
   let directions = [];
