@@ -175,72 +175,69 @@ function autoFormatRecipe(raw, name) {
 
   let current = "narrative";
 
-  const sectionMap = {
-    "ingredients": "ingredients",
-    "ingredient": "ingredients",
-    "directions": "directions",
-    "instructions": "directions",
-    "method": "directions",
-    "steps": "directions",
-    "notes": "notes",
-    "note": "notes",
-    "tips": "tips",
-    "tip": "tips",
-    "serving": "serving",
-    "serve": "serving",
-    "servings": "serving"
-  };
-
   function detectSection(line) {
-    const lower = line.toLowerCase();
-    for (let key in sectionMap) {
-      if (lower.startsWith(key)) {
-        return sectionMap[key];
-      }
+    const cleaned = line
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
+
+    const headers = [
+      "ingredients",
+      "ingredients:",
+      "directions",
+      "directions:",
+      "notes",
+      "notes:",
+      "tips",
+      "tips:",
+      "serving",
+      "serving:",
+      "misc",
+      "misc:"
+    ];
+
+    if (headers.includes(cleaned)) {
+      return cleaned.replace(":", "");
     }
+
     return null;
   }
 
-  const ingredientKeywords = [
-    "cup", "tsp", "tbsp", "teaspoon", "tablespoon",
-    "oz", "ounce", "lb", "pound", "clove", "slice",
-    "gram", "kg", "ml", "liter", "pinch", "g)"
-  ];
-
-  function looksLikeIngredient(line) {
-    const lower = line.toLowerCase();
-    return (
-      ingredientKeywords.some(k => lower.includes(k)) ||
-      /^[0-9]/.test(line) ||
-      line.includes(",")
-    );
-  }
 
   for (let line of lines) {
-    const detected = detectSection(line);
+    const section = detectSection(line);
 
-    if (detected) {
-      current = detected;
+    if (section) {
+      current = section;
       continue;
     }
 
-    if (current === "narrative" && looksLikeIngredient(line)) {
-      current = "ingredients";
-    }
-
     switch (current) {
-      case "narrative": narrative.push(line); break;
-      case "ingredients": ingredients.push(line); break;
-      case "directions": directions.push(line); break;
-      case "notes": notes.push(line); break;
-      case "tips": tips.push(line); break;
-      case "serving": serving.push(line); break;
-      default: misc.push(line); break;
+      case "narrative":
+        narrative.push(line);
+        break;
+      case "ingredients":
+        ingredients.push(line);
+        break;
+      case "directions":
+        directions.push(line);
+        break;
+      case "notes":
+        notes.push(line);
+        break;
+      case "tips":
+        tips.push(line);
+        break;
+      case "serving":
+        serving.push(line);
+        break;
+      case "misc":
+        misc.push(line);
+        break;
     }
   }
 
   return {
-    title: name,
     narrative,
     ingredients,
     directions,
