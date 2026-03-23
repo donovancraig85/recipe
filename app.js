@@ -161,7 +161,7 @@ if (search) {
 }
 
 // -----------------------------
-// BULLETPROOF PARSER
+// BULLETPROOF PARSER (WITH FIX)
 // -----------------------------
 function autoFormatRecipe(raw, name) {
   raw = cleanText(raw);
@@ -175,8 +175,7 @@ function autoFormatRecipe(raw, name) {
   let lines = raw
     .split("\n")
     .map(l => l.trim())
-    .filter(l => l.length > 0)
-    .map(normalizeLine);
+    .filter(l => l.length > 0);
 
   let narrative = [];
   let ingredients = [];
@@ -204,7 +203,7 @@ function autoFormatRecipe(raw, name) {
       continue;
     }
 
-    // METADATA SECOND
+    // METADATA
     if (lower.startsWith("yields") || lower.startsWith("yield")) {
       const match = lower.match(/(\d+)\s*serv/);
       if (match) servings = match[1];
@@ -229,22 +228,28 @@ function autoFormatRecipe(raw, name) {
       continue;
     }
 
-    // NUMBERED LINES
-    if (/^\d+[\).]?\s/.test(line)) {
-      if (mode === "directions") directions.push(line);
-      else if (mode === "ingredients") ingredients.push(line);
-      else narrative.push(line);
+    // ⭐ FIX: Detect numbered steps BEFORE normalization
+    if (/^\d+[\.\)\:]\s*/.test(line)) {
+      const cleanedStep = line.replace(/^\d+[\.\)\:]\s*/, "").trim();
+      directions.push(cleanedStep);
+      mode = "directions";
       continue;
     }
 
     // INGREDIENT LINES
     if (mode === "ingredients") {
-      ingredients.push(line);
+      ingredients.push(normalizeLine(line));
+      continue;
+    }
+
+    // DIRECTIONS (non-numbered steps)
+    if (mode === "directions") {
+      directions.push(normalizeLine(line));
       continue;
     }
 
     // DEFAULT → NARRATIVE
-    narrative.push(line);
+    narrative.push(normalizeLine(line));
   }
 
   return {
@@ -272,7 +277,8 @@ function normalizeLine(line) {
 function detectHeader(line) {
   const cleaned = line
     .normalize("NFKD")
-    .replace(/[\u0000-\u001F\u007F-\u00A0\u2000-\u206F]/g, "")
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F]/g, "")
+    .replace(/[\u0000-\u001F\u007F-\u00A0]/g, "")
     .toLowerCase()
     .replace(/[^a-z]/g, "");
 
@@ -441,4 +447,3 @@ function enableCategoryFiltering() {
 }
 
 enableCategoryFiltering();
-
