@@ -187,41 +187,23 @@ function autoFormatRecipe(raw, name) {
     const lower = line.toLowerCase();
     const header = detectHeader(line);
 
-    // FLEXIBLE METADATA EXTRACTION
-    if (lower.startsWith("yield") || lower.startsWith("yields")) {
-      const match = lower.match(/(\d+)\s*serv/);
-      if (match) servings = match[1];
-      continue;
-    }
+    // SECTION HEADERS FIRST
+if (header === "ingredients") {
+  mode = "ingredients";
+  continue;
+}
 
-    if (lower.startsWith("prep")) {
-      const match = lower.match(/prep[^0-9]*([\d\s\w]+)/i);
-      if (match) prepTime = match[1].trim();
-      continue;
-    }
+if (header === "directions" || header === "instructions" || header === "method") {
+  mode = "directions";
+  continue;
+}
 
-    if (lower.startsWith("cook")) {
-      const match = lower.match(/cook[^0-9]*([\d\s\w]+)/i);
-      if (match) cookTime = match[1].trim();
-      continue;
-    }
+// METADATA SECOND
+if (lower.startsWith("yields") || lower.startsWith("yield")) { ... }
+if (lower.startsWith("prep")) { ... }
+if (lower.startsWith("cook")) { ... }
+if (lower.startsWith("total")) { ... }
 
-    if (lower.startsWith("total")) {
-      const match = lower.match(/total[^0-9]*([\d\s\w]+)/i);
-      if (match) totalTime = match[1].trim();
-      continue;
-    }
-
-    // SECTION HEADERS
-    if (header === "ingredients") {
-      mode = "ingredients";
-      continue;
-    }
-
-    if (header === "directions" || header === "instructions" || header === "method") {
-      mode = "directions";
-      continue;
-    }
 
     // NUMBERED LINES
     if (/^\d+[\).]?\s/.test(line)) {
