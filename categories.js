@@ -1,11 +1,20 @@
 document.addEventListener("DOMContentLoaded", () => {
+  // Wait until Firebase is fully initialized
+  const waitForFirebase = setInterval(() => {
+    if (window.db) {
+      clearInterval(waitForFirebase);
+      startCategoryPage();
+    }
+  }, 50);
+});
+
+function startCategoryPage() {
   // Read ?cat= from URL
   const params = new URLSearchParams(window.location.search);
   const category = params.get("cat");
 
-  // If category is missing or null, avoid crashing
   if (!category || typeof category !== "string") {
-    renderRecipes([]); 
+    renderRecipes([]);
     return;
   }
 
@@ -24,8 +33,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const filtered = recipes.filter(r => {
       const cat = r.category;
-
-      // Skip null, undefined, non-strings
       if (typeof cat !== "string") return false;
 
       return (
@@ -36,4 +43,4 @@ document.addEventListener("DOMContentLoaded", () => {
 
     renderRecipes(filtered);
   });
-});
+}
