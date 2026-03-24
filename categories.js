@@ -1,5 +1,8 @@
+// -----------------------------
+// CATEGORY PAGE LOADER
+// -----------------------------
 document.addEventListener("DOMContentLoaded", () => {
-  // Wait until Firebase is fully initialized
+  // Wait until Firebase initializes
   const waitForFirebase = setInterval(() => {
     if (window.db) {
       clearInterval(waitForFirebase);
@@ -9,38 +12,53 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function startCategoryPage() {
-  // Read ?cat= from URL
+  // Read ?cat= from URL and normalize it
   const params = new URLSearchParams(window.location.search);
-  const category = params.get("cat");
+  const rawCategory = params.get("cat");
 
-  if (!category || typeof category !== "string") {
+  if (!rawCategory || typeof rawCategory !== "string") {
     renderRecipes([]);
     return;
   }
 
+  const category = rawCategory.trim().toLowerCase();
+
   // Set page title
   const titleEl = document.getElementById("category-title");
   if (titleEl) {
-    titleEl.textContent = category;
+    titleEl.textContent = capitalizeWords(rawCategory.trim());
   }
 
-  // Realtime listener for recipes
+  // Listen for recipe updates
   db.collection("recipes").onSnapshot(snapshot => {
     const recipes = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
 
+    // Filter recipes by normalized category
     const filtered = recipes.filter(r => {
-      const cat = r.category;
-      if (typeof cat !== "string") return false;
+      if (!r.category || typeof r.category !== "string") return false;
 
-      return (
-        cat.trim().toLowerCase() ===
-        category.trim().toLowerCase()
-      );
+      const cat = r.category.trim().toLowerCase();
+
+      // STRICT MATCH (recommended)
+      return cat === category;
+
+      // If you want partial matching instead, use:
+      // return cat.includes(category);
     });
 
     renderRecipes(filtered);
   });
+}
+
+// -----------------------------
+// HELPERS
+// -----------------------------
+function capitalizeWords(str) {
+  return str
+    .split(" ")
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
 }
