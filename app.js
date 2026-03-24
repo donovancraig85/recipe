@@ -392,36 +392,73 @@ function readImageOCR(file, name, category) {
 // PROCESS + SAVE FORMATTED RECIPE
 // -----------------------------
 function processRecipeText(text, name, category) {
-  const formatted = autoFormatRecipe(text, name, category);
+  const lines = text
+    .split("\n")
+    .map(l => l.trim())
+    .filter(l => l.length > 0);
 
-  const finalCategory = uploadCategory.value.trim();
+  let narrative = [];
+  let ingredients = [];
+  let directions = [];
 
-  const newRecipe = {
+  let inIngredients = false;
+  let inDirections = false;
+
+  for (let line of lines) {
+    // Skip headers/footers
+    if (line.startsWith("THREE GUYS")) continue;
+    if (line.startsWith("DESSERTS")) continue;
+    if (/^Page\s*\d+/i.test(line)) continue;
+
+    // Detect ingredients section
+    if (/^INGREDIENTS/i.test(line)) {
+      inIngredients = true;
+      inDirections = false;
+      continue;
+    }
+
+    // Detect directions (1., 2., 3., etc.)
+    if (/^\d+\./.test(line)) {
+      inDirections = true;
+      inIngredients = false;
+      directions.push(line);
+      continue;
+    }
+
+    // Ingredients: lines starting with numbers or fractions
+    if (inIngredients && (/^\d/.test(line) || /^[½¼¾⅓⅔]/.test(line))) {
+      ingredients.push(line);
+      continue;
+    }
+
+    // Additional direction lines
+    if (inDirections && /^\d+\./.test(line)) {
+      directions.push(line);
+      continue;
+    }
+
+    // Narrative (before ingredients)
+    if (!inIngredients && !inDirections) {
+      narrative.push(line);
+    }
+  }
+
+  const recipe = {
     name,
-    category: finalCategory,
-    narrative: formatted.narrative,
-    ingredients: formatted.ingredients,
-    directions: formatted.directions,
-    servings: formatted.servings,
-    prepTime: formatted.prepTime,
-    cookTime: formatted.cookTime,
-    totalTime: formatted.totalTime
+    category,
+    narrative: narrative.join(" "),
+    ingredients,
+    directions,
+    servings: "",
+    prepTime: "",
+    cookTime: "",
+    totalTime: "",
+    createdAt: new Date()
   };
 
-  db.collection("recipes").add(newRecipe)
-    .then(docRef => {
-      alert("Recipe uploaded successfully!");
-      uploadName.value = "";
-      uploadCategory.value = "";
-      fileInput.value = "";
-
-      recipes.push({ id: docRef.id, ...newRecipe });
-      renderRecipes(recipes);
-    })
-    .catch(err => {
-      console.error("Error uploading recipe:", err);
-      alert("Error uploading recipe. Check console for details.");
-    });
+  db.collection("recipes").add(recipe).then(() => {
+    alert("Recipe uploaded!");
+  });
 }
 
 // -----------------------------
