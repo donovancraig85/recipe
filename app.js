@@ -19,6 +19,7 @@ function cleanText(raw) {
     .trim();
 }
 
+
 // -----------------------------
 // LOAD RECIPES FROM FIRESTORE
 // -----------------------------
@@ -228,7 +229,6 @@ function autoFormatRecipe(raw, name) {
       continue;
     }
 
-    // ⭐ FIX: Detect numbered steps BEFORE normalization
     if (/^\d+[\.\)\:]\s*/.test(line)) {
       const cleanedStep = line.replace(/^\d+[\.\)\:]\s*/, "").trim();
       directions.push(cleanedStep);
@@ -326,7 +326,7 @@ if (uploadbtn) {
 // -----------------------------
 function readTextFile(file, name) {
   const reader = new FileReader();
-  reader.onload = () => processRecipeText(reader.result, name);
+  reader.onload = () => processRecipeText(reader.result, name, category);
   reader.readAsText(file);
 }
 
@@ -347,7 +347,7 @@ function readPDF(file, name) {
       fullText += strings.join("\n") + "\n";
     }
 
-    processRecipeText(fullText, name);
+    processRecipeText(fullText, name, category);
   };
   reader.readAsArrayBuffer(file);
 }
@@ -359,7 +359,7 @@ function readDocx(file, name) {
   const reader = new FileReader();
   reader.onload = async () => {
     const result = await mammoth.extractRawText({ arrayBuffer: reader.result });
-    processRecipeText(result.value, name);
+    processRecipeText(result.value, name, category);
   };
   reader.readAsArrayBuffer(file);
 }
@@ -372,7 +372,7 @@ function readHTML(file, name) {
   reader.onload = () => {
     const div = document.createElement("div");
     div.innerHTML = reader.result;
-    processRecipeText(div.innerText, name);
+    processRecipeText(div.innerText, name, category);
   };
   reader.readAsText(file);
 }
@@ -382,15 +382,15 @@ function readHTML(file, name) {
 // -----------------------------
 function readImageOCR(file, name) {
   Tesseract.recognize(file, "eng").then(result => {
-    processRecipeText(result.data.text, name);
+    processRecipeText(result.data.text, name, category);
   });
 }
 
 // -----------------------------
 // PROCESS + SAVE FORMATTED RECIPE
 // -----------------------------
-function processRecipeText(text, name) {
-  const formatted = autoFormatRecipe(text, name);
+function processRecipeText(text, name, category) {
+  const formatted = autoFormatRecipe(text, name, category);
 
   const category = uploadCategory.value.trim();
 
