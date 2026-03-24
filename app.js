@@ -311,11 +311,11 @@ if (uploadbtn) {
 
     const ext = file.name.split(".").pop().toLowerCase();
 
-    if (["txt"].includes(ext)) return readTextFile(file, name);
-    if (["pdf"].includes(ext)) return readPDF(file, name);
-    if (["docx"].includes(ext)) return readDocx(file, name);
-    if (["html", "htm"].includes(ext)) return readHTML(file, name);
-    if (["png", "jpg", "jpeg", "webp", "gif"].includes(ext)) return readImageOCR(file, name);
+    if (["txt"].includes(ext)) return readTextFile(file, name, category);
+    if (["pdf"].includes(ext)) return readPDF(file, name, category);
+    if (["docx"].includes(ext)) return readDocx(file, name, category);
+    if (["html", "htm"].includes(ext)) return readHTML(file, name, category);
+    if (["png", "jpg", "jpeg", "webp", "gif"].includes(ext)) return readImageOCR(file, name, category);
 
     alert("Unsupported file type.");
   });
