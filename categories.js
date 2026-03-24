@@ -5,8 +5,8 @@ const category = params.get("cat");
 // Set page title
 document.getElementById("category-title").textContent = category;
 
-// Load recipes from Firestore
-db.collection("recipes").get().then(snapshot => {
+// Realtime listener for recipes
+db.collection("recipes").onSnapshot(snapshot => {
   const recipes = snapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data()
@@ -14,7 +14,7 @@ db.collection("recipes").get().then(snapshot => {
 
   const filtered = recipes.filter(r =>
     r.category &&
-    r.category.toLowerCase() === category.toLowerCase()
+    r.category.trim().toLowerCase() === category.trim().toLowerCase()
   );
 
   renderRecipes(filtered);
