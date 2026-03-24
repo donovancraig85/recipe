@@ -19,7 +19,6 @@ function cleanText(raw) {
     .trim();
 }
 
-
 // -----------------------------
 // LOAD RECIPES FROM FIRESTORE
 // -----------------------------
@@ -72,7 +71,7 @@ function renderRecipes(list) {
 loadRecipes();
 
 // -----------------------------
-// FUZZY MATCHING (NAME ONLY)
+// FUZZY MATCHING
 // -----------------------------
 function levenshteinDistance(a, b) {
   const matrix = Array.from({ length: b.length + 1 }, (_, i) => [i]);
@@ -94,14 +93,12 @@ function levenshteinDistance(a, b) {
 function fuzzyMatch(text, query) {
   text = text.toLowerCase();
   query = query.toLowerCase();
-
   if (text.includes(query)) return true;
-
   return levenshteinDistance(text, query) <= 2;
 }
 
 // -----------------------------
-// SEARCH + LIVE DROPDOWN
+// SEARCH + DROPDOWN
 // -----------------------------
 const search = document.getElementById("search");
 const searchBtn = document.getElementById("search-btn");
@@ -162,136 +159,6 @@ if (search) {
 }
 
 // -----------------------------
-// BULLETPROOF PARSER (WITH FIX)
-// -----------------------------
-function autoFormatRecipe(raw, name) {
-  raw = cleanText(raw);
-
-  raw = raw
-    .replace(/\u00A0/g, " ")
-    .replace(/\u2013|\u2014/g, "-")
-    .replace(/\u2022/g, "-")
-    .replace(/\r/g, "");
-
-  let lines = raw
-    .split("\n")
-    .map(l => l.trim())
-    .filter(l => l.length > 0);
-
-  let narrative = [];
-  let ingredients = [];
-  let directions = [];
-
-  let servings = null;
-  let prepTime = null;
-  let cookTime = null;
-  let totalTime = null;
-
-  let mode = "narrative";
-
-  for (let line of lines) {
-    const lower = line.toLowerCase();
-    const header = detectHeader(line);
-
-    // SECTION HEADERS FIRST
-    if (header === "ingredients") {
-      mode = "ingredients";
-      continue;
-    }
-
-    if (header === "directions" || header === "instructions" || header === "method") {
-      mode = "directions";
-      continue;
-    }
-
-    // METADATA
-    if (lower.startsWith("yields") || lower.startsWith("yield")) {
-      const match = lower.match(/(\d+)\s*serv/);
-      if (match) servings = match[1];
-      continue;
-    }
-
-    if (lower.startsWith("prep")) {
-      const match = line.match(/prep[^0-9]*([\d\s\w]+)/i);
-      if (match) prepTime = match[1].trim();
-      continue;
-    }
-
-    if (lower.startsWith("cook")) {
-      const match = line.match(/cook[^0-9]*([\d\s\w]+)/i);
-      if (match) cookTime = match[1].trim();
-      continue;
-    }
-
-    if (lower.startsWith("total")) {
-      const match = line.match(/total[^0-9]*([\d\s\w]+)/i);
-      if (match) totalTime = match[1].trim();
-      continue;
-    }
-
-    if (/^\d+[\.\)\:]\s*/.test(line)) {
-      const cleanedStep = line.replace(/^\d+[\.\)\:]\s*/, "").trim();
-      directions.push(cleanedStep);
-      mode = "directions";
-      continue;
-    }
-
-    // INGREDIENT LINES
-    if (mode === "ingredients") {
-      ingredients.push(normalizeLine(line));
-      continue;
-    }
-
-    // DIRECTIONS (non-numbered steps)
-    if (mode === "directions") {
-      directions.push(normalizeLine(line));
-      continue;
-    }
-
-    // DEFAULT → NARRATIVE
-    narrative.push(normalizeLine(line));
-  }
-
-  return {
-    narrative,
-    ingredients,
-    directions,
-    servings,
-    prepTime,
-    cookTime,
-    totalTime
-  };
-}
-
-// -----------------------------
-// NORMALIZATION HELPERS
-// -----------------------------
-function normalizeLine(line) {
-  return line
-    .replace(/^[-•*]\s*/, "")
-    .replace(/^\d+[\.\-\)\:]\s*/, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function detectHeader(line) {
-  const cleaned = line
-    .normalize("NFKD")
-    .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F]/g, "")
-    .replace(/[\u0000-\u001F\u007F-\u00A0]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z]/g, "");
-
-  if (cleaned === "ingredients") return "ingredients";
-  if (cleaned === "ingredient") return "ingredients";
-  if (cleaned === "directions") return "directions";
-  if (cleaned === "instructions") return "instructions";
-  if (cleaned === "method") return "method";
-
-  return null;
-}
-
-// -----------------------------
 // FILE UPLOAD HANDLER
 // -----------------------------
 const fileInput = document.getElementById("recipe-file");
@@ -301,31 +168,30 @@ const uploadCategory = document.getElementById("upload-category");
 
 if (uploadbtn) {
   uploadbtn.addEventListener("click", () => {
-  const file = fileInput.files[0];
-  const name = uploadName.value.trim();
-  const category = uploadCategory.value.trim();
+    const file = fileInput.files[0];
+    const name = uploadName.value.trim();
+    const category = uploadCategory.value.trim();
 
-  if (!name) return alert("Please enter a recipe name.");
-  if (!category) return alert("Please select a category.");
-  if (!file) return alert("Please select a file first.");
+    if (!name) return alert("Please enter a recipe name.");
+    if (!category) return alert("Please select a category.");
+    if (!file) return alert("Please select a file first.");
 
-  const cleanName = file.name.toLowerCase().split("?")[0];
-  const ext = cleanName.split(".").pop();
+    const cleanName = file.name.toLowerCase().split("?")[0];
+    const ext = cleanName.split(".").pop();
 
-  console.log("Detected file name:", file.name);
-  console.log("Detected extension:", ext);
+    console.log("Detected file name:", file.name);
+    console.log("Detected extension:", ext);
 
-  if (ext === "txt") return readTextFile(file, name, category);
-  if (ext.includes("pdf")) return readPDF(file, name, category);
-  if (ext.includes("docx")) return readDocx(file, name, category);
-  if (ext.includes("html") || ext.includes("htm")) return readHTML(file, name, category);
-  if (["png", "jpg", "jpeg", "webp", "gif"].some(e => ext.includes(e)))
-    return readImageOCR(file, name, category);
+    if (ext === "txt") return readTextFile(file, name, category);
+    if (ext.includes("pdf")) return readPDF(file, name, category);
+    if (ext.includes("docx")) return readDocx(file, name, category);
+    if (ext.includes("html") || ext.includes("htm")) return readHTML(file, name, category);
+    if (["png", "jpg", "jpeg", "webp", "gif"].some(e => ext.includes(e)))
+      return readImageOCR(file, name, category);
 
-  alert("Unsupported file type.");
-});
+    alert("Unsupported file type.");
+  });
 }
-
 
 // -----------------------------
 // TEXT FILE
@@ -337,7 +203,7 @@ function readTextFile(file, name, category) {
 }
 
 // -----------------------------
-// PDF FILE
+// PDF → OCR PIPELINE
 // -----------------------------
 async function readPDF(file, name, category) {
   console.log("readPDF() STARTED");
@@ -352,7 +218,6 @@ async function readPDF(file, name, category) {
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
 
-    // Render page to canvas
     const viewport = page.getViewport({ scale: 2 });
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
@@ -362,13 +227,11 @@ async function readPDF(file, name, category) {
 
     await page.render({ canvasContext: ctx, viewport }).promise;
 
-    // Convert canvas to image blob
     const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
     const imageFile = new File([blob], `page-${i}.png`, { type: "image/png" });
 
     console.log("Running OCR on page", i);
 
-    // OCR the image
     const result = await Tesseract.recognize(imageFile, "eng");
     fullText += result.data.text + "\n";
   }
@@ -413,14 +276,13 @@ function readImageOCR(file, name, category) {
 }
 
 // -----------------------------
-// PROCESS + SAVE FORMATTED RECIPE
+// CLEAN OCR PARSER
 // -----------------------------
-ffunction processRecipeText(text, name, category) {
-  // Normalize OCR text
+function processRecipeText(text, name, category) {
   const clean = text
-    .replace(/[=|~—”“‘’•·]/g, "")        // remove OCR garbage
-    .replace(/\s+/g, " ")                // collapse whitespace
-    .replace(/Page \d+/gi, "")           // remove page numbers
+    .replace(/[=|~—”“‘’•·]/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/Page \d+/gi, "")
     .trim();
 
   const lines = clean.split(/(?=\b[A-Za-z0-9])/).map(l => l.trim());
@@ -434,38 +296,32 @@ ffunction processRecipeText(text, name, category) {
   for (let line of lines) {
     if (!line) continue;
 
-    // Detect INGREDIENTS section
     if (line.toUpperCase().includes("INGREDIENTS")) {
       mode = "ingredients";
       continue;
     }
 
-    // Detect DIRECTIONS (1., 2., etc.)
     if (/^\d+\./.test(line)) {
       mode = "directions";
       directions.push(line);
       continue;
     }
 
-    // Detect ingredient section headers (Cake, Syrup, Frosting)
     if (mode === "ingredients" && /^[A-Za-z ]+$/.test(line) && line.length < 30) {
       ingredients.push(`— ${line} —`);
       continue;
     }
 
-    // Ingredients: lines with numbers, fractions, or measurements
     if (mode === "ingredients" && /(\d|\bteaspoon\b|\btablespoon\b|\bcup\b|\bcan\b|\begg\b)/i.test(line)) {
       ingredients.push(line);
       continue;
     }
 
-    // Directions: additional lines after numbering
     if (mode === "directions") {
       directions.push(line);
       continue;
     }
 
-    // Narrative (before ingredients)
     if (mode === "narrative") {
       narrative.push(line);
     }
@@ -489,9 +345,8 @@ ffunction processRecipeText(text, name, category) {
   });
 }
 
-
 // -----------------------------
-// CATEGORY SIDEBAR FILTERING
+// CATEGORY FILTERING
 // -----------------------------
 function enableCategoryFiltering() {
   const items = document.querySelectorAll("#category-list li");
