@@ -392,9 +392,16 @@ function readImageOCR(file, name, category) {
 // PROCESS + SAVE FORMATTED RECIPE
 // -----------------------------
 function processRecipeText(text, name, category) {
+  const normalize = str =>
+    str
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "") // remove accents
+      .replace(/\s+/g, " ")            // collapse weird spacing
+      .trim();
+
   const lines = text
     .split("\n")
-    .map(l => l.trim())
+    .map(normalize)
     .filter(l => l.length > 0);
 
   let narrative = [];
@@ -404,34 +411,31 @@ function processRecipeText(text, name, category) {
   let inIngredients = false;
   let inDirections = false;
 
-  for (let line of lines) {
+  for (let raw of lines) {
+    const line = normalize(raw);
 
     // Skip headers/footers
-    if (line.startsWith("THREE GUYS")) continue;
-    if (line.startsWith("DESSERTS")) continue;
+    if (line.includes("THREE GUYS")) continue;
+    if (line.includes("DESSERTS")) continue;
     if (/^Page\s*\d+/i.test(line)) continue;
 
-    // Detect ingredients section
-    if (/^INGREDIENTS/i.test(line)) {
+    // Detect ingredients section (very forgiving)
+    if (line.replace(/[^A-Za-z]/g, "").toUpperCase().includes("INGREDIENTS")) {
       inIngredients = true;
       inDirections = false;
       continue;
     }
 
-    // Detect directions (1., 2., 3., etc.)
-    if (/^\d+\./.test(line)) {
+    // Detect directions (match "1.", "1 .", "1)")
+    if (/^\d+\s*[\.\)]/.test(line)) {
       inDirections = true;
       inIngredients = false;
       directions.push(line);
       continue;
     }
 
-    // Ingredient section headers (Cake, Syrup, Frosting, etc.)
-    if (
-      inIngredients &&
-      /^[A-Za-zÀ-ÿ ']+$/.test(line) &&
-      line.length < 40
-    ) {
+    // Ingredient section headers (Cake, Syrup, Frosting)
+    if (inIngredients && /^[A-Za-z ]+$/.test(line) && line.length < 40) {
       ingredients.push("— " + line + " —");
       continue;
     }
@@ -443,7 +447,7 @@ function processRecipeText(text, name, category) {
     }
 
     // Additional direction lines
-    if (inDirections && /^\d+\./.test(line)) {
+    if (inDirections && /^\d+\s*[\.\)]/.test(line)) {
       directions.push(line);
       continue;
     }
