@@ -1,44 +1,10 @@
-const params = new URLSearchParams(window.location.search);
-const category = params.get("cat");
-
-document.getElementById("category-title").textContent = category;
-
-db.collection("recipes")
-  .where("category", "==", category)
-  .get()
-  .then(snapshot => {
-    const list = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-
-    renderCategoryRecipes(list);
-  });
-
-function renderCategoryRecipes(list) {
-  const container = document.getElementById("recipe-list");
-  container.innerHTML = "";
-
-  list.sort((a, b) => a.name.localeCompare(b.name));
-
-  list.forEach(recipe => {
-    const card = document.createElement("div");
-    card.className = "recipe-card";
-
-    const link = document.createElement("a");
-    link.textContent = recipe.name;
-    link.href = `recipe.html?id=${encodeURIComponent(recipe.id)}`;
-
-    card.appendChild(link);
-    container.appendChild(card);
-  });
-}
-
+// Builds category links dynamically from the sidebar category list
 
 function buildCategoryLinks() {
   const sidebarItems = document.querySelectorAll("#category-list li");
   const container = document.getElementById("category-links");
 
+  // If the page doesn't have a category-links container, stop
   if (!container) return;
 
   container.innerHTML = "";
@@ -50,6 +16,7 @@ function buildCategoryLinks() {
     const li = document.createElement("li");
     const link = document.createElement("a");
 
+    // Link to your category template page
     link.href = `category.html?cat=${encodeURIComponent(cat)}`;
     link.textContent = cat;
 
@@ -57,5 +24,9 @@ function buildCategoryLinks() {
     container.appendChild(li);
   });
 }
+
+// Run after DOM loads
+document.addEventListener("DOMContentLoaded", buildCategoryLinks);
+
 
 buildCategoryLinks();
