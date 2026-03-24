@@ -40,6 +40,20 @@
   color: #0077cc;
 }
 
+.sidebar a {
+  color: inherit;
+  text-decoration: none;
+  display: block;
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+/* Optional: hover effect */
+.sidebar a:hover {
+  background: #f0f0f0;
+}
+
+
 /* Main Content */
 .main-content {
   flex: 1;
