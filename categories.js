@@ -1,9 +1,15 @@
 document.addEventListener("DOMContentLoaded", () => {
+  // Read ?cat= from URL
   const params = new URLSearchParams(window.location.search);
   const category = params.get("cat");
 
-  document.getElementById("category-title").textContent = category;
+  // Set page title
+  const titleEl = document.getElementById("category-title");
+  if (titleEl) {
+    titleEl.textContent = category;
+  }
 
+  // Realtime listener for recipes
   db.collection("recipes").onSnapshot(snapshot => {
     const recipes = snapshot.docs.map(doc => ({
       id: doc.id,
