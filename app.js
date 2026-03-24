@@ -339,26 +339,40 @@ function readTextFile(file, name, category) {
 // -----------------------------
 // PDF FILE
 // -----------------------------
-function readPDF(file, name, category) {
+async function readPDF(file, name, category) {
   const reader = new FileReader();
   reader.onload = async () => {
     const typedArray = new Uint8Array(reader.result);
     const pdf = await pdfjsLib.getDocument({ data: typedArray }).promise;
 
     let fullText = "";
+    let hasText = false;
+
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
-      const strings = content.items.map(item => item.str);
-      fullText += strings.join("\n") + "\n";
+
+      console.log("Page", i, "items:", content.items.length);
+
+      if (content.items.length > 0) {
+        hasText = true;
+        const strings = content.items.map(item => item.str);
+        fullText += strings.join("\n") + "\n";
+      }
     }
 
-    processRecipeText(fullText, name, category);
+    if (hasText) {
+      console.log("PDF TEXT OUTPUT:", fullText);
+      return processRecipeText(fullText, name, category);
+    }
+
+    // FALLBACK: PDF has no text → use OCR
+    console.log("PDF contains no text. Running OCR...");
+    return readImageOCR(file, name, category);
   };
+
   reader.readAsArrayBuffer(file);
 }
-
-
 // -----------------------------
 // DOCX FILE
 // -----------------------------
