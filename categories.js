@@ -16,10 +16,15 @@ document.addEventListener("DOMContentLoaded", () => {
       ...doc.data()
     }));
 
-    const filtered = recipes.filter(r =>
-      r.category &&
-      r.category.trim().toLowerCase() === category.trim().toLowerCase()
-    );
+    const filtered = recipes.filter(r => {
+      // Ensure category exists and is a string
+      if (typeof r.category !== "string") return false;
+
+      return (
+        r.category.trim().toLowerCase() ===
+        category.trim().toLowerCase()
+      );
+    });
 
     renderRecipes(filtered);
   });
