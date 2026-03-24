@@ -1,19 +1,21 @@
-// categories.js
-// Makes each sidebar category item clickable
+// Read ?cat= from URL
+const params = new URLSearchParams(window.location.search);
+const category = params.get("cat");
 
-function activateCategoryList() {
-  const items = document.querySelectorAll("#category-list li");
+// Set page title
+document.getElementById("category-title").textContent = category;
 
-  items.forEach(item => {
-    const cat = item.dataset.cat;
-    if (!cat) return;
+// Load recipes from Firestore
+db.collection("recipes").get().then(snapshot => {
+  const recipes = snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  }));
 
-    item.style.cursor = "pointer";
+  const filtered = recipes.filter(r =>
+    r.category &&
+    r.category.toLowerCase() === category.toLowerCase()
+  );
 
-    item.addEventListener("click", () => {
-      window.location.href = `category.html?cat=${encodeURIComponent(cat)}`;
-    });
-  });
-}
-
-document.addEventListener("DOMContentLoaded", activateCategoryList);
+  renderRecipes(filtered);
+});
