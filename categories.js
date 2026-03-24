@@ -40,13 +40,10 @@ function startCategoryPage() {
     const filtered = recipes.filter(r => {
       if (!r.category || typeof r.category !== "string") return false;
 
-      const cat = r.category.trim().toLowerCase();
+      const recipeCat = r.category.trim().toLowerCase();
 
-      // STRICT MATCH (recommended)
-      return cat === category;
-
-      // If you want partial matching instead, use:
-      // return cat.includes(category);
+      // Forgiving match: "dinner", "Dinner ", "Dinner Recipes", etc.
+      return recipeCat.includes(category);
     });
 
     renderRecipes(filtered);
