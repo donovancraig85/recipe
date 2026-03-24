@@ -415,69 +415,58 @@ function readImageOCR(file, name, category) {
 // -----------------------------
 // PROCESS + SAVE FORMATTED RECIPE
 // -----------------------------
-function processRecipeText(text, name, category) {
-  const normalize = str =>
-    str
-      .normalize("NFKD")
-      .replace(/[\u0300-\u036f]/g, "") // remove accents
-      .replace(/\s+/g, " ")            // collapse weird spacing
-      .trim();
+ffunction processRecipeText(text, name, category) {
+  // Normalize OCR text
+  const clean = text
+    .replace(/[=|~—”“‘’•·]/g, "")        // remove OCR garbage
+    .replace(/\s+/g, " ")                // collapse whitespace
+    .replace(/Page \d+/gi, "")           // remove page numbers
+    .trim();
 
-  const lines = text
-    .split("\n")
-    .map(normalize)
-    .filter(l => l.length > 0);
+  const lines = clean.split(/(?=\b[A-Za-z0-9])/).map(l => l.trim());
 
   let narrative = [];
   let ingredients = [];
   let directions = [];
 
-  let inIngredients = false;
-  let inDirections = false;
+  let mode = "narrative";
 
-  for (let raw of lines) {
-    const line = normalize(raw);
+  for (let line of lines) {
+    if (!line) continue;
 
-    // Skip headers/footers
-    if (line.includes("THREE GUYS")) continue;
-    if (line.includes("DESSERTS")) continue;
-    if (/^Page\s*\d+/i.test(line)) continue;
-
-    // Detect ingredients section (very forgiving)
-    if (line.replace(/[^A-Za-z]/g, "").toUpperCase().includes("INGREDIENTS")) {
-      inIngredients = true;
-      inDirections = false;
+    // Detect INGREDIENTS section
+    if (line.toUpperCase().includes("INGREDIENTS")) {
+      mode = "ingredients";
       continue;
     }
 
-    // Detect directions (match "1.", "1 .", "1)")
-    if (/^\d+\s*[\.\)]/.test(line)) {
-      inDirections = true;
-      inIngredients = false;
+    // Detect DIRECTIONS (1., 2., etc.)
+    if (/^\d+\./.test(line)) {
+      mode = "directions";
       directions.push(line);
       continue;
     }
 
-    // Ingredient section headers (Cake, Syrup, Frosting)
-    if (inIngredients && /^[A-Za-z ]+$/.test(line) && line.length < 40) {
-      ingredients.push("— " + line + " —");
+    // Detect ingredient section headers (Cake, Syrup, Frosting)
+    if (mode === "ingredients" && /^[A-Za-z ]+$/.test(line) && line.length < 30) {
+      ingredients.push(`— ${line} —`);
       continue;
     }
 
-    // Ingredients: ANY line inside ingredient mode
-    if (inIngredients) {
+    // Ingredients: lines with numbers, fractions, or measurements
+    if (mode === "ingredients" && /(\d|\bteaspoon\b|\btablespoon\b|\bcup\b|\bcan\b|\begg\b)/i.test(line)) {
       ingredients.push(line);
       continue;
     }
 
-    // Additional direction lines
-    if (inDirections && /^\d+\s*[\.\)]/.test(line)) {
+    // Directions: additional lines after numbering
+    if (mode === "directions") {
       directions.push(line);
       continue;
     }
 
     // Narrative (before ingredients)
-    if (!inIngredients && !inDirections) {
+    if (mode === "narrative") {
       narrative.push(line);
     }
   }
@@ -499,6 +488,7 @@ function processRecipeText(text, name, category) {
     alert("Recipe uploaded!");
   });
 }
+
 
 // -----------------------------
 // CATEGORY SIDEBAR FILTERING
