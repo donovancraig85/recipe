@@ -281,22 +281,24 @@ function readImageOCR(file, name, category) {
 function processRecipeText(text, name, category) {
   // 1. Remove obvious OCR garbage
   text = text
+    .replace(/THREE GUYS FROM MIAMI COOK CUBAN/gi, "")
+    .replace(/DESSERTS/gi, "")
+    .replace(/\b\d{3}\b/g, "") // page numbers like 211, 212, 213
     .replace(/[=|~”“‘’•·]/g, " ")
     .replace(/[\u00A0]/g, " ")
     .replace(/[^a-zA-Z0-9.,:;()/%\- ]/g, " ") // remove stray glyphs
     .replace(/\s+/g, " ")
     .trim();
 
-  // 2. Merge everything into full sentences before splitting
+  // 2. Merge broken OCR lines into real sentences
   let merged = text
-    .replace(/(\w)\s+(\w)/g, "$1 $2") // normalize spacing
     .replace(/([a-z])([A-Z])/g, "$1. $2") // fix missing periods
     .replace(/(\d)\s+(\d)/g, "$1$2") // fix split numbers
     .replace(/\s{2,}/g, " ");
 
-  // 3. Now split into real lines
+  // 3. Split into sentences
   let lines = merged
-    .split(/(?<=\.)\s+/) // split on sentence boundaries
+    .split(/(?<=\.)\s+/)
     .map(l => l.trim())
     .filter(l => l.length > 0);
 
@@ -321,8 +323,7 @@ function processRecipeText(text, name, category) {
 
     // INGREDIENTS
     if (mode === "ingredients") {
-      // detect real ingredient lines
-      if (/\d/.test(line) || /(cup|teaspoon|tablespoon|can|egg|flour|milk|cream)/i.test(line)) {
+      if (/\d/.test(line) || /(cup|teaspoon|tablespoon|can|egg|flour|milk|cream|rum|sugar)/i.test(line)) {
         ingredients.push(line);
         continue;
       }
