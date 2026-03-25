@@ -278,7 +278,7 @@ function readImageOCR(file, name, category) {
 // -----------------------------
 // CLEAN OCR PARSER
 // -----------------------------
-function parseOCRRecipe(rawText, name, category) {
+function processRecipeText(rawText, name, category) {
   // -----------------------------
   // 1. NORMALIZE RAW OCR TEXT
   // -----------------------------
