@@ -462,10 +462,19 @@ function processRecipeText(rawText, name, category) {
     // Direction detection
     const stepPattern = /^(\d+[\).]|step\s?\d+)/i;
 
-    if (mode === "directions" && (stepPattern.test(clean) || clean.length > 20)) {
-      directions.push(clean);
-      continue;
-    }
+   // Always capture numbered steps anywhere in the text
+const stepPattern = /^(\d+[\).]|step\s?\d+)/i;
+if (stepPattern.test(clean)) {
+  directions.push(clean);
+  continue;
+}
+
+// Only use mode-based detection if no numbering
+if (mode === "directions" && clean.length > 20) {
+  directions.push(clean);
+  continue;
+}
+
 
     // Everything else = narrative
     narrative.push(clean);
