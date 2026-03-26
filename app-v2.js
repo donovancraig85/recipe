@@ -186,23 +186,23 @@ const uploadCategory = document.getElementById("upload-category");
 
 if (uploadbtn) {
   uploadbtn.addEventListener("click", () => {
-    const file = fileInput.files[0];
+    const files = fileInput.files;
     const name = uploadName.value.trim();
     const category = uploadCategory.value.trim();
 
     if (!name) return alert("Please enter a recipe name.");
     if (!category) return alert("Please select a category.");
-    if (!file) return alert("Please select a file first.");
+    if (!files.length) return alert("Please select a file first.");
 
-    const ext = file.name.toLowerCase().split(".").pop() || "";
+    const ext = files[0].name.toLowerCase().split(".").pop() || "";
 
-    if (ext === "txt") return readTextFile(file, name, category);
-    if (ext === "pdf") return readPDF(file, name, category);
-    if (ext === "docx") return readDocx(file, name, category);
-    if (ext === "html" || ext === "htm") return readHTML(file, name, category);
+    if (ext === "txt") return readTextFile(files[0], name, category);
+    if (ext === "pdf") return readPDF(files[0], name, category);
+    if (ext === "docx") return readDocx(files[0], name, category);
+    if (ext === "html" || ext === "htm") return readHTML(files[0], name, category);
 
     if (["png", "jpg", "jpeg", "webp", "gif"].includes(ext))
-      return readImageOCR(file, name, category);
+      return readImageOCR(files, name, category);
 
     alert("Unsupported file type.");
   });
@@ -218,7 +218,7 @@ function readTextFile(file, name, category) {
 }
 
 // -----------------------------
-// PDF → PNG → RAW BINARY OCR
+// MULTI‑PAGE PDF → PNG → OCR
 // -----------------------------
 async function readPDF(file, name, category) {
   const arrayBuffer = await file.arrayBuffer();
@@ -281,7 +281,7 @@ function readHTML(file, name, category) {
 }
 
 // -----------------------------
-// IMAGE OCR
+// MULTI‑IMAGE OCR
 // -----------------------------
 async function readImageOCR(fileList, name, category) {
   let fullText = "";
@@ -298,7 +298,6 @@ async function readImageOCR(fileList, name, category) {
 // UNIVERSAL OCR NORMALIZER
 // -----------------------------
 function normalizeOCRText(text) {
-  // 1. Basic cleanup
   let lines = text
     .replace(/\r/g, "\n")
     .replace(/\u00A0/g, " ")
@@ -309,7 +308,6 @@ function normalizeOCRText(text) {
     .map(l => l.trim())
     .filter(l => l.length > 0);
 
-  // 2. Remove obvious non‑recipe chatter
   const chatterPatterns = [
     /^page\s*\d+/i,
     /^\d+\s*of\s*\d+/i,
@@ -325,11 +323,9 @@ function normalizeOCRText(text) {
   ];
   lines = lines.filter(l => !chatterPatterns.some(p => p.test(l)));
 
-  // 3. Remove speaker names or dialogue (generic)
   const speakerPattern = /^[A-Z][a-z]+:/;
   lines = lines.filter(l => !speakerPattern.test(l));
 
-  // 4. Merge broken ingredient lines
   const merged = [];
   for (let i = 0; i < lines.length; i++) {
     const curr = lines[i];
@@ -350,7 +346,6 @@ function normalizeOCRText(text) {
   }
   lines = merged;
 
-  // 5. Normalize section headers (generic)
   const knownSections = [
     "ingredients",
     "directions",
@@ -376,7 +371,6 @@ function normalizeOCRText(text) {
     return l;
   });
 
-  // 6. Remove duplicate blank lines
   return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
@@ -384,7 +378,6 @@ function normalizeOCRText(text) {
 // OCR CLEANUP + PARSER
 // -----------------------------
 function processRecipeText(rawText, name, category) {
-  // 0. Initial cleanup
   let text = rawText
     .replace(/\r/g, "\n")
     .replace(/\u00A0/g, " ")
@@ -399,10 +392,8 @@ function processRecipeText(rawText, name, category) {
     .replace(/-{3,}/g, "")
     .trim();
 
-  // 1. Normalize OCR text BEFORE parsing
   text = normalizeOCRText(text);
 
-  // 2. Split into lines
   let lines = text
     .split(/\n+/)
     .map(l => l.trim())
@@ -428,15 +419,12 @@ function processRecipeText(rawText, name, category) {
 
   let mode = "narrative";
 
-  // 3. Parse normalized text
   for (let line of lines) {
     const clean = line.trim();
     const lower = clean.toLowerCase();
 
-    // Skip subsection labels entirely (no subsections in schema)
     if (subsectionLabels.includes(lower)) continue;
 
-    // Switch modes
     if (isHeader(clean, "ingredient")) {
       mode = "ingredients";
       continue;
@@ -450,7 +438,13 @@ function processRecipeText(rawText, name, category) {
       continue;
     }
 
-    // Ingredient detection (flexible)
+ 
+    const stepPattern = /^(\d+[\).]|step\s?\d+)/i;
+    if (stepPattern.test(clean)) {
+      directions.push(clean);
+      continue;
+    }
+
     const ingredientPattern =
       /^(\d+|\d+\s?\/\s?\d+|\d+\.\d+|\d+\s?\d\/\d|\(?\d+.*\)?)\s*[a-z]/i;
 
@@ -459,28 +453,14 @@ function processRecipeText(rawText, name, category) {
       continue;
     }
 
-    // Direction detection
-    const stepPattern = /^(\d+[\).]|step\s?\d+)/i;
+    if (mode === "directions" && clean.length > 20) {
+      directions.push(clean);
+      continue;
+    }
 
-   // Always capture numbered steps anywhere in the text
-const stepPattern = /^(\d+[\).]|step\s?\d+)/i;
-if (stepPattern.test(clean)) {
-  directions.push(clean);
-  continue;
-}
-
-// Only use mode-based detection if no numbering
-if (mode === "directions" && clean.length > 20) {
-  directions.push(clean);
-  continue;
-}
-
-
-    // Everything else = narrative
     narrative.push(clean);
   }
 
-  // 4. Build recipe object
   const recipe = {
     name,
     category,
@@ -494,7 +474,6 @@ if (mode === "directions" && clean.length > 20) {
     createdAt: new Date()
   };
 
-  // 5. Save to Firestore
   db.collection("recipes")
     .add(recipe)
     .then(() => alert("Recipe uploaded!"))
