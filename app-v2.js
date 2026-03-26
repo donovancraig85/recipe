@@ -1,3 +1,4 @@
+// app-v2.js
 // -----------------------------
 // GLOBALS
 // -----------------------------
@@ -35,6 +36,7 @@ function loadRecipes() {
       }));
 
       renderRecipes(recipes);
+      enableCategoryFiltering();
     })
     .catch(err => console.error("Error loading recipes:", err));
 }
@@ -173,6 +175,7 @@ async function runOCR(arrayBuffer) {
     return "";
   }
 }
+
 // -----------------------------
 // FILE UPLOAD HANDLER
 // -----------------------------
@@ -234,7 +237,7 @@ async function readPDF(file, name, category) {
 
   const pngBlob = await new Promise((resolve, reject) => {
     canvas.toBlob(
-      blob => blob ? resolve(blob) : reject(new Error("Failed to create PNG blob")),
+      blob => (blob ? resolve(blob) : reject(new Error("Failed to create PNG blob"))),
       "image/png",
       1.0
     );
@@ -279,11 +282,97 @@ async function readImageOCR(file, name, category) {
   processRecipeText(text, name, category);
 }
 
+// -----------------------------
+// UNIVERSAL OCR NORMALIZER
+// -----------------------------
+function normalizeOCRText(text) {
+  // 1. Basic cleanup
+  let lines = text
+    .replace(/\r/g, "\n")
+    .replace(/\u00A0/g, " ")
+    .replace(/[ ]{2,}/g, " ")
+    .replace(/\t+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .split("\n")
+    .map(l => l.trim())
+    .filter(l => l.length > 0);
+
+  // 2. Remove obvious non‑recipe chatter
+  const chatterPatterns = [
+    /^page\s*\d+/i,
+    /^\d+\s*of\s*\d+/i,
+    /^copyright/i,
+    /^all rights reserved/i,
+    /^www\./i,
+    /^http/i,
+    /^recipe by/i,
+    /^serves\s*\d+/i,
+    /^yield/i,
+    /^makes/i,
+    /^notes?:/i
+  ];
+  lines = lines.filter(l => !chatterPatterns.some(p => p.test(l)));
+
+  // 3. Remove speaker names or dialogue (generic)
+  const speakerPattern = /^[A-Z][a-z]+:/;
+  lines = lines.filter(l => !speakerPattern.test(l));
+
+  // 4. Merge broken ingredient lines
+  const merged = [];
+  for (let i = 0; i < lines.length; i++) {
+    const curr = lines[i];
+    const next = lines[i + 1] || "";
+
+    const qty = /^(\d+|\d+\s?\/\s?\d+|\d+\.\d+|\d+\s?\d\/\d)/;
+    const unit = /(cup|tsp|tbsp|teaspoon|tablespoon|oz|ounce|gram|kg|lb|ml|liter|pinch|dash|clove|can|package|stick|slice|egg)/i;
+
+    const looksLikeQty = qty.test(curr);
+    const nextLooksLikeIngredient = unit.test(next) || /^[a-z]/i.test(next);
+
+    if (looksLikeQty && nextLooksLikeIngredient) {
+      merged.push(curr + " " + next);
+      i++;
+    } else {
+      merged.push(curr);
+    }
+  }
+  lines = merged;
+
+  // 5. Normalize section headers (generic)
+  const knownSections = [
+    "ingredients",
+    "directions",
+    "instructions",
+    "method",
+    "preparation",
+    "prep",
+    "cake",
+    "syrup",
+    "frosting",
+    "topping",
+    "filling",
+    "dough",
+    "batter",
+    "glaze"
+  ];
+
+  lines = lines.map(l => {
+    const lower = l.toLowerCase();
+    if (knownSections.some(s => lower.includes(s))) {
+      return "\n" + l.toUpperCase() + "\n";
+    }
+    return l;
+  });
+
+  // 6. Remove duplicate blank lines
+  return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
 
 // -----------------------------
 // OCR CLEANUP + PARSER
 // -----------------------------
 function processRecipeText(rawText, name, category) {
+  // 0. Initial cleanup
   let text = rawText
     .replace(/\r/g, "\n")
     .replace(/\u00A0/g, " ")
@@ -298,6 +387,10 @@ function processRecipeText(rawText, name, category) {
     .replace(/-{3,}/g, "")
     .trim();
 
+  // 1. Normalize OCR text BEFORE parsing
+  text = normalizeOCRText(text);
+
+  // 2. Split into lines
   let lines = text
     .split(/\n+/)
     .map(l => l.trim())
@@ -306,32 +399,55 @@ function processRecipeText(rawText, name, category) {
   const isHeader = (line, word) =>
     line.replace(/\s+/g, "").toLowerCase().includes(word);
 
+  const subsectionLabels = [
+    "cake",
+    "syrup",
+    "frosting",
+    "topping",
+    "filling",
+    "dough",
+    "batter",
+    "glaze"
+  ];
+
   let narrative = [];
   let ingredients = [];
   let directions = [];
 
   let mode = "narrative";
 
+  // 3. Parse normalized text
   for (let line of lines) {
     const clean = line.trim();
+    const lower = clean.toLowerCase();
 
+    // Skip subsection labels entirely (no subsections in schema)
+    if (subsectionLabels.includes(lower)) continue;
+
+    // Switch modes
     if (isHeader(clean, "ingredient")) {
       mode = "ingredients";
       continue;
     }
-    if (isHeader(clean, "direction") || isHeader(clean, "instruction")) {
+    if (
+      isHeader(clean, "direction") ||
+      isHeader(clean, "instruction") ||
+      isHeader(clean, "method")
+    ) {
       mode = "directions";
       continue;
     }
 
+    // Ingredient detection (flexible)
     const ingredientPattern =
-      /^(\d+|\d+\s?\/\s?\d+|\d+\.\d+)?\s*(cup|cups|teaspoon|teaspoons|tablespoon|tablespoons|tbsp|tsp|oz|ounce|ounces|can|cans|egg|eggs|ml|g|kg|lb|pound|pounds|stick|sticks|clove|cloves|pinch|dash)\b/i;
+      /^(\d+|\d+\s?\/\s?\d+|\d+\.\d+|\d+\s?\d\/\d|\(?\d+.*\)?)\s*[a-z]/i;
 
     if (mode === "ingredients" && ingredientPattern.test(clean)) {
       ingredients.push(clean);
       continue;
     }
 
+    // Direction detection
     const stepPattern = /^(\d+[\).]|step\s?\d+)/i;
 
     if (mode === "directions" && (stepPattern.test(clean) || clean.length > 20)) {
@@ -339,9 +455,11 @@ function processRecipeText(rawText, name, category) {
       continue;
     }
 
+    // Everything else = narrative
     narrative.push(clean);
   }
 
+  // 4. Build recipe object
   const recipe = {
     name,
     category,
@@ -355,6 +473,7 @@ function processRecipeText(rawText, name, category) {
     createdAt: new Date()
   };
 
+  // 5. Save to Firestore
   db.collection("recipes")
     .add(recipe)
     .then(() => alert("Recipe uploaded!"))
