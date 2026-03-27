@@ -161,35 +161,133 @@ if (search) {
  MEDIUM-STRENGTH INGREDIENT DETECTOR
    ------------------------------------------------------------ */
 function isIngredientLike(line) {
-  const lower = line.toLowerCase();
+  const lower = line.toLowerCase().trim();
+
+  if (!lower) return false;
 
   if (/^\d+([\/\s]\d+)?/.test(lower)) return true;
-  if (/\b(cup|cups|teaspoon|tablespoon|tsp|tbsp|ounce|oz|pound|lb|gram|ml|liter)\b/.test(lower))
-    return true;
-  if (/\(\d/.test(lower)) return true;
-  if (/\d+\/\d+/.test(lower)) return true;
+
+  if (/^[¼½¾⅐⅑⅒⅓⅔⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]/.test(lower)) return true;
+
+  if (/^\(\d/.test(lower)) return true;
+
+  if (/\d+\s?\d*\/\d*/.test(lower)) return true;
+
+  const units = [
+    "cup", "cups",
+    "teaspoon", "teaspoons", "tsp",
+    "tablespoon", "tablespoons", "tbsp",
+    "ounce", "ounces", "oz",
+    "pound", "pounds", "lb", "lbs",
+    "gram", "grams", "g",
+    "kilogram", "kilograms", "kg",
+    "milliliter", "milliliters", "ml",
+    "liter", "liters", "l",
+    "pinch", "dash"
+  ];
+  if (units.some(u => lower.includes(u))) return true;
+
+  // 6. Ingredient keywords (generic)
+  const ingredientKeywords = [
+    "can ",
+    "package",
+    "pkg",
+    "clove",
+    "cloves",
+    "stick",
+    "sticks",
+    "slice",
+    "slices",
+    "fillet",
+    "fillets",
+    "breast",
+    "breasts"
+  ];
+  if (ingredientKeywords.some(k => lower.includes(k))) return true;
+
+  // 7. Lines that look like ingredients but lack quantity
+  //    e.g. "salt", "vanilla extract", "baking powder"
+  const commonIngredients = [
+    "salt",
+    "pepper",
+    "extract",
+    "powder",
+    "flour",
+    "sugar",
+    "milk",
+    "cream",
+    "butter",
+    "oil",
+    "vinegar",
+    "yeast",
+    "baking",
+    "corn syrup",
+    "honey"
+  ];
+  if (commonIngredients.some(k => lower.includes(k))) return true;
 
   return false;
 }
+
+function isDirectionLike(line) {
+  const lower = line.toLowerCase().trim();
+
+  if (!lower) return false;
+
+  // 1. Starts with a verb (most directions do)
+  const cookingVerbs = [
+    "add", "beat", "mix", "stir", "combine", "pour", "whisk", "fold",
+    "bake", "cook", "heat", "boil", "simmer", "fry", "saute", "grill",
+    "roast", "preheat", "knead", "blend", "spread", "grease", "measure",
+    "cut", "slice", "chop", "mince", "peel", "crack", "separate",
+    "transfer", "place", "arrange", "press", "cover", "uncover",
+    "cool", "let", "allow", "serve"
+  ];
+
+  if (cookingVerbs.some(v => lower.startsWith(v + " "))) return true;
+
+  // 2. Contains step numbers
+  if (/^\d+[\.\):\-]/.test(lower)) return true;
+  if (/^step\s*\d+/i.test(lower)) return true;
+
+  // 3. Contains time or temperature
+  if (/\bminutes?\b/.test(lower)) return true;
+  if (/\bhours?\b/.test(lower)) return true;
+  if (/\bdegrees?\b/.test(lower)) return true;
+  if (/\b°F\b|\b°f\b|\b°c\b/.test(lower)) return true;
+
+  // 4. Contains cookware or action phrases
+  const cookware = [
+    "bowl", "pan", "skillet", "oven", "dish", "pot",
+    "mixer", "spatula", "whisk", "fork", "knife"
+  ];
+  if (cookware.some(w => lower.includes(w))) return true;
+
+  // 5. Contains procedural phrases
+  const procedural = [
+    "until", "then", "next", "finally", "at this point",
+    "in a separate", "in another", "in the meantime"
+  ];
+  if (procedural.some(p => lower.includes(p))) return true;
+
+  return false;
+}
+
 
 /* ------------------------------------------------------------
 CLASSIFY LINES
    ------------------------------------------------------------ */
 function classifyLine(line) {
-  const lower = line.toLowerCase();
+  const lower = line.toLowerCase().trim();
 
-  if (/^[A-Za-z]+:/.test(line)) return "speaker";
+  if (isDirectionLike(line)) return "direction";
+
   if (isIngredientLike(line)) return "ingredient";
+
   if (lower.includes("directions")) return "directions-header";
   if (lower.includes("ingredients")) return "ingredients-header";
 
-  if (/^page\s*\d+/.test(lower)) return "garbage";
-  if (/^\d{3}$/.test(lower)) return "garbage";
-  if (/^(cake|syrup|frosting|topping|filling|glaze)$/i.test(lower)) return "garbage";
-  if (lower.includes("variation")) return "garbage";
-  if (lower.includes("serves")) return "garbage";
-  if (lower.includes("tres leches cake")) return "garbage";
-  if (lower.includes("three milks cake")) return "garbage";
+  if (/^[A-Za-z]+:/.test(line)) return "speaker";
 
   return "narrative";
 }
