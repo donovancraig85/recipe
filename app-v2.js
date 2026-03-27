@@ -276,16 +276,13 @@ function detectTwoColumnLayout(lines) {
 SPLIT INTO TWO COLUMNS
    ------------------------------------------------------------ */
 function splitColumns(lines) {
-  const left = [];
-  const right = [];
+  const left = [];  
+  const right = [];  
 
   for (const line of lines) {
-    if (isIngredientLike(line)) {
-      left.push(line);
-    } else if (isDirectionLike(line)) {
+    if (isDirectionLike(line) || isIngredientLike(line)) {
       right.push(line);
     } else {
-      // narrative or speaker lines go left
       left.push(line);
     }
   }
@@ -300,13 +297,15 @@ function rebuildPage(columns) {
   const ingredients = [];
   const directions = [];
 
+  // LEFT = narrative only
   for (const line of columns.left) {
-    if (isIngredientLike(line)) ingredients.push(line);
-    else narrative.push(line);
+    narrative.push(line);
   }
 
+  // RIGHT = ingredients + directions
   for (const line of columns.right) {
-    if (isDirectionLike(line)) directions.push(line);
+    if (isIngredientLike(line)) ingredients.push(line);
+    else if (isDirectionLike(line)) directions.push(line);
   }
 
   return { narrative, ingredients, directions };
