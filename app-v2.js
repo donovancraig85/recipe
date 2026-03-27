@@ -243,51 +243,83 @@ CLASSIFY LINES
 function classifyLine(line) {
   const lower = line.toLowerCase().trim();
 
-  // 0. Hard narrative overrides
-  if (/^[A-Za-z]+:/.test(line.trim())) return "narrative"; // speaker
+  // ------------------------------------------------------------
+  // 0. HARD NARRATIVE OVERRIDES
+  // ------------------------------------------------------------
+
+  // Speaker lines
+  if (/^[A-Za-z]+:/.test(line.trim())) return "narrative";
+
+  // Continuation pages
   if (lower.includes("continuation")) return "narrative";
+  if (lower.includes("cuatro leches")) return "narrative";
+  if (lower.includes("dulce de leche")) return "narrative";
+
+  // Story-like language
   if (lower.startsWith("serves")) return "narrative";
   if (lower.includes("delicious") || lower.includes("served")) return "narrative";
-  if (/[.]{3}$/.test(line.trim())) return "narrative"; // ends with ...
-  if (/\(.*\)/.test(line) && !/\(\d/.test(line)) return "narrative"; // parentheses but not measurements
+  if (lower.includes("moistest") || lower.includes("most delicious")) return "narrative";
 
-  // NEW: narrative override for broken ingredient fragments
+  // Parenthetical narrative (not measurements)
+  if (/\(.*\)/.test(line) && !/\(\d/.test(line)) return "narrative";
+
+  // Ends with ellipsis
+  if (/[.]{3}$/.test(line.trim())) return "narrative";
+
+  // Broken narrative fragments that contain food words but are NOT ingredients
   if (
     (lower.includes("cake") ||
      lower.includes("filling") ||
      lower.includes("soaking") ||
      lower.includes("syrup") ||
-     lower.includes("moistest") ||
-     lower.includes("delicious")) &&
-    !/^\d/.test(lower) &&              // does NOT start with a number
-    !lower.match(/^\d*\s*(cup|teaspoon|tablespoon|ounce|can|egg)/) // does NOT look like an ingredient
+     lower.includes("making") ||
+     lower.includes("eat") ||
+     lower.includes("spoon")) &&
+    !/^\d/.test(lower) &&
+    !lower.match(/^\d*\s*(cup|teaspoon|tablespoon|ounce|can|egg|pint|quart)/)
   ) {
     return "narrative";
   }
 
-  // 1. Strong signals
+  // ------------------------------------------------------------
+  // 1. STRONG SIGNALS
+  // ------------------------------------------------------------
   if (isDirectionLike(line)) return "direction";
   if (isIngredientLike(line)) return "ingredient";
 
-  // 2. Headers (safety)
+  // ------------------------------------------------------------
+  // 2. HEADERS (safety)
+  // ------------------------------------------------------------
   if (lower.startsWith("directions")) return "header";
   if (lower.startsWith("ingredients")) return "header";
 
-  // 3. Direction overrides
+  // ------------------------------------------------------------
+  // 3. DIRECTION OVERRIDES
+  // (OCR often puts these inside Ingredients)
+  // ------------------------------------------------------------
   if (
     lower.includes("pour") ||
     lower.includes("whisk") ||
     lower.includes("beat") ||
     lower.includes("mix") ||
     lower.includes("cool") ||
-    lower.includes("until")
+    lower.includes("stir") ||
+    lower.includes("soak") ||
+    lower.includes("pierce") ||
+    lower.includes("bake") ||
+    lower.includes("preheat")
   ) {
     return "direction";
   }
 
-  // 4. Ingredient fragments (only if not narrative-like)
+  // ------------------------------------------------------------
+  // 4. INGREDIENT FRAGMENTS
+  // (only if not narrative-like)
+  // ------------------------------------------------------------
   if (
-    (lower.includes("milk") || lower.includes("cream") || lower.includes("syrup")) &&
+    (lower.includes("milk") ||
+     lower.includes("cream") ||
+     lower.includes("syrup")) &&
     !lower.includes("delicious") &&
     !lower.includes("served") &&
     !/^[A-Za-z]+:/.test(line.trim())
@@ -295,7 +327,9 @@ function classifyLine(line) {
     return "ingredient";
   }
 
-  // 5. Default
+  // ------------------------------------------------------------
+  // 5. DEFAULT
+  // ------------------------------------------------------------
   return "narrative";
 }
 
