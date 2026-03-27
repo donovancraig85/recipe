@@ -565,6 +565,97 @@ function processRecipeText(rawText, name, category) {
     const ingredientPattern =
       /^(\d+|\d+\s?\/\s?\d+|\d+\.\d+|\d+\s?\d\/\d|\(?\d+.*\)?)\s*[a-z]/i;
 
+    // STEP LINES
     if (stepPattern.test(clean)) {
       const split = splitSteps(clean);
-      split.forEach
+      split.forEach(part => {
+        let stepText = removeStepNumber(part);
+        if (stepText.length > 0) {
+          directions.push(stepText);
+        }
+      });
+      mode = "directions";
+      continue;
+    }
+
+    // CONTINUATION OF PREVIOUS STEP
+    if (mode === "directions" && !ingredientPattern.test(clean)) {
+      if (directions.length > 0) {
+        directions[directions.length - 1] += " " + clean;
+        continue;
+      }
+    }
+
+    // VERB-BASED DIRECTION
+    if (verbPattern.test(clean)) {
+      directions.push(removeStepNumber(clean));
+      mode = "directions";
+      continue;
+    }
+
+    // INGREDIENTS
+    if (mode === "ingredients" && ingredientPattern.test(clean)) {
+      const split = splitIngredients(clean);
+      split.forEach(part => {
+        const trimmed = removeIngredientComments(part).trim();
+        if (trimmed.length > 0) ingredients.push(trimmed);
+      });
+      continue;
+    }
+
+    // LONG LINES INSIDE DIRECTIONS
+    if (mode === "directions" && clean.length > 20) {
+      directions.push(removeStepNumber(clean));
+      continue;
+    }
+
+    // EVERYTHING ELSE → NARRATIVE
+    narrative.push(clean);
+  }
+
+  const recipe = {
+    name,
+    category,
+    narrative,
+    ingredients,
+    directions,
+    servings: "",
+    prepTime: "",
+    cookTime: "",
+    totalTime: "",
+    createdAt: new Date()
+  };
+
+  db.collection("recipes")
+    .add(recipe)
+    .then(() => alert("Recipe uploaded!"))
+    .catch(err => {
+      console.error("Error saving recipe:", err);
+      alert("Error saving recipe. Check console.");
+    });
+}
+
+// ------------------------------------------------------
+// CATEGORY FILTERING
+// ------------------------------------------------------
+function enableCategoryFiltering() {
+  const items = document.querySelectorAll("#category-list li");
+  if (!items) return;
+
+  items.forEach(li => {
+    li.addEventListener("click", () => {
+      items.forEach(i => i.classList.remove("active"));
+      li.classList.add("active");
+
+      const category = li.dataset.cat;
+
+      const filtered = recipes.filter(
+        r =>
+          r.category &&
+          r.category.toLowerCase() === category.toLowerCase()
+      );
+
+      renderRecipes(filtered);
+    });
+  });
+}
