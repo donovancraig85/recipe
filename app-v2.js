@@ -1,4 +1,4 @@
-// app.js v2.7 — Full Pipeline (Importer + Formatter)
+// app.js v2.7.2 — Full Pipeline (Importer + Formatter)
 // ------------------------------------------------------
 // GLOBALS
 // ------------------------------------------------------
@@ -41,6 +41,11 @@ function loadRecipes() {
     .catch(err => console.error("Error loading recipes:", err));
 }
 
+loadRecipes();
+
+// ------------------------------------------------------
+// RENDER RECIPES
+// ------------------------------------------------------
 function renderRecipes(list) {
   const container = document.getElementById("recipe-list");
   if (!container) return;
@@ -68,10 +73,8 @@ function renderRecipes(list) {
   });
 }
 
-loadRecipes();
-
 // ------------------------------------------------------
-// SEARCH + DROPDOWN
+// SEARCH SYSTEM
 // ------------------------------------------------------
 const search = document.getElementById("search");
 const searchBtn = document.getElementById("search-btn");
@@ -156,7 +159,7 @@ if (search) {
 }
 
 // ------------------------------------------------------
-// AZURE OCR (RAW BINARY)
+// OCR ENGINE
 // ------------------------------------------------------
 async function runOCR(arrayBuffer) {
   try {
@@ -218,7 +221,7 @@ function readTextFile(file, name, category) {
 }
 
 // ------------------------------------------------------
-// MULTI‑PAGE PDF → PNG → OCR
+// PDF → PNG → OCR
 // ------------------------------------------------------
 async function readPDF(file, name, category) {
   const arrayBuffer = await file.arrayBuffer();
@@ -295,10 +298,7 @@ async function readImageOCR(fileList, name, category) {
 }
 
 // ------------------------------------------------------
-// PIPELINE HELPERS
-// ------------------------------------------------------
-// ------------------------------------------------------
-// v2.7.1 — FULL PIPELINE (Importer keeps step numbers)
+// v2.7.2 PIPELINE HELPERS
 // ------------------------------------------------------
 
 // Normalize units BEFORE splitting
@@ -356,7 +356,7 @@ function stripVariations(line) {
   return line;
 }
 
-// Remove page numbers, headers, etc.
+// Remove page numbers, headers, section labels
 function isGarbage(line) {
   const lower = line.toLowerCase();
   const patterns = [
@@ -365,12 +365,17 @@ function isGarbage(line) {
     /^three guys/,
     /^desserts$/,
     /^variations$/,
-    /^cuatro/,
-    /^banana/,
+    /^(cake|syrup|frosting|topping|filling|glaze)$/i,
+    /^\d{3}$/,        // page numbers like 210, 211, 212, 213
     /^www\./,
     /^http/
   ];
   return patterns.some(p => p.test(lower));
+}
+
+// Detect speaker lines (keep as narrative)
+function isSpeakerLine(line) {
+  return /^[A-Za-z]+:/.test(line);   // Raúl:, Jorge:, Glenn:
 }
 
 // Merge broken quantity lines
@@ -450,7 +455,7 @@ function normalizeOCR(text) {
 }
 
 // ------------------------------------------------------
-// v2.7.1 IMPORTER (keeps step numbers)
+// v2.7.2 IMPORTER (keeps step numbers)
 // ------------------------------------------------------
 function processRecipePipeline(rawText, name, category) {
   const cleaned = cleanText(rawText);
@@ -474,6 +479,12 @@ function processRecipePipeline(rawText, name, category) {
     if (line.length === 0) continue;
 
     const lower = line.toLowerCase();
+
+    // Speaker lines → narrative only
+    if (isSpeakerLine(line)) {
+      narrative.push(line);
+      continue;
+    }
 
     if (lower.includes("ingredient")) {
       mode = "ingredients";
