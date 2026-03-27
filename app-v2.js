@@ -1,12 +1,11 @@
-// app.js v2
-// -----------------------------
+// ------------------------------------------------------
 // GLOBALS
-// -----------------------------
+// ------------------------------------------------------
 let recipes = [];
 
-// -----------------------------
-// UNIVERSAL TEXT CLEANER
-// -----------------------------
+// ------------------------------------------------------
+// BASIC TEXT CLEANER
+// ------------------------------------------------------
 function cleanText(raw) {
   return raw
     .replace(/\r/g, "\n")
@@ -18,9 +17,9 @@ function cleanText(raw) {
     .trim();
 }
 
-// -----------------------------
+// ------------------------------------------------------
 // LOAD RECIPES FROM FIRESTORE
-// -----------------------------
+// ------------------------------------------------------
 function loadRecipes() {
   db.collection("recipes")
     .get()
@@ -70,9 +69,9 @@ function renderRecipes(list) {
 
 loadRecipes();
 
-// -----------------------------
+// ------------------------------------------------------
 // SEARCH + DROPDOWN
-// -----------------------------
+// ------------------------------------------------------
 const search = document.getElementById("search");
 const searchBtn = document.getElementById("search-btn");
 const searchResults = document.getElementById("search-results");
@@ -155,9 +154,9 @@ if (search) {
   searchBtn?.addEventListener("click", runSearch);
 }
 
-// -----------------------------
+// ------------------------------------------------------
 // AZURE OCR (RAW BINARY)
-// -----------------------------
+// ------------------------------------------------------
 async function runOCR(arrayBuffer) {
   try {
     const response = await fetch(
@@ -176,9 +175,9 @@ async function runOCR(arrayBuffer) {
   }
 }
 
-// -----------------------------
+// ------------------------------------------------------
 // FILE UPLOAD HANDLER
-// -----------------------------
+// ------------------------------------------------------
 const fileInput = document.getElementById("recipe-file");
 const uploadbtn = document.getElementById("upload-btn");
 const uploadName = document.getElementById("upload-name");
@@ -208,18 +207,18 @@ if (uploadbtn) {
   });
 }
 
-// -----------------------------
+// ------------------------------------------------------
 // TEXT FILE
-// -----------------------------
+// ------------------------------------------------------
 function readTextFile(file, name, category) {
   const reader = new FileReader();
   reader.onload = () => processRecipeText(reader.result, name, category);
   reader.readAsText(file);
 }
 
-// -----------------------------
+// ------------------------------------------------------
 // MULTI‑PAGE PDF → PNG → OCR
-// -----------------------------
+// ------------------------------------------------------
 async function readPDF(file, name, category) {
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -253,9 +252,9 @@ async function readPDF(file, name, category) {
   processRecipeText(fullText, name, category);
 }
 
-// -----------------------------
+// ------------------------------------------------------
 // DOCX FILE
-// -----------------------------
+// ------------------------------------------------------
 function readDocx(file, name, category) {
   const reader = new FileReader();
   reader.onload = async () => {
@@ -267,9 +266,9 @@ function readDocx(file, name, category) {
   reader.readAsArrayBuffer(file);
 }
 
-// -----------------------------
+// ------------------------------------------------------
 // HTML FILE
-// -----------------------------
+// ------------------------------------------------------
 function readHTML(file, name, category) {
   const reader = new FileReader();
   reader.onload = () => {
@@ -280,9 +279,9 @@ function readHTML(file, name, category) {
   reader.readAsText(file);
 }
 
-// -----------------------------
+// ------------------------------------------------------
 // MULTI‑IMAGE OCR
-// -----------------------------
+// ------------------------------------------------------
 async function readImageOCR(fileList, name, category) {
   let fullText = "";
 
@@ -294,9 +293,9 @@ async function readImageOCR(fileList, name, category) {
   processRecipeText(fullText, name, category);
 }
 
-// -----------------------------
+// ------------------------------------------------------
 // CAPITALIZATION NORMALIZER
-// -----------------------------
+// ------------------------------------------------------
 function normalizeCaps(line) {
   if (line.length < 4) return line;
 
@@ -315,9 +314,40 @@ function normalizeCaps(line) {
   return line;
 }
 
-// -----------------------------
+// ------------------------------------------------------
+// GARBAGE LINE FILTER
+// ------------------------------------------------------
+function isGarbage(line) {
+  const lower = line.toLowerCase();
+
+  const garbagePatterns = [
+    /^page\s*\d+/i,
+    /^\d+\s*of\s*\d+/i,
+    /^\d+$/,
+    /^desserts?$/i,
+    /^three guys from miami/i,
+    /^continued on next page/i,
+    /^tres leches cake/i,
+    /^three milks cake/i,
+    /^banana tres leches/i,
+    /^cuatro leches/i,
+    /^variations/i,
+    /^serves\b/i,
+    /^chapter\b/i,
+    /^section\b/i,
+    /^[A-Z][a-z]+:/, // speaker names
+    /^copyright/i,
+    /^all rights reserved/i,
+    /^www\./i,
+    /^http/i
+  ];
+
+  return garbagePatterns.some(p => p.test(line));
+}
+
+// ------------------------------------------------------
 // UNIVERSAL OCR NORMALIZER
-// -----------------------------
+// ------------------------------------------------------
 function normalizeOCRText(text) {
   let lines = text
     .replace(/\r/g, "\n")
@@ -329,24 +359,10 @@ function normalizeOCRText(text) {
     .map(l => l.trim())
     .filter(l => l.length > 0);
 
-  const chatterPatterns = [
-    /^page\s*\d+/i,
-    /^\d+\s*of\s*\d+/i,
-    /^copyright/i,
-    /^all rights reserved/i,
-    /^www\./i,
-    /^http/i,
-    /^recipe by/i,
-    /^serves\s*\d+/i,
-    /^yield/i,
-    /^makes/i,
-    /^notes?:/i
-  ];
-  lines = lines.filter(l => !chatterPatterns.some(p => p.test(l)));
+  // Remove garbage lines
+  lines = lines.filter(l => !isGarbage(l));
 
-  const speakerPattern = /^[A-Z][a-z]+:/;
-  lines = lines.filter(l => !speakerPattern.test(l));
-
+  // Merge broken ingredient lines
   const merged = [];
   for (let i = 0; i < lines.length; i++) {
     const curr = lines[i];
@@ -367,52 +383,17 @@ function normalizeOCRText(text) {
   }
   lines = merged;
 
-  const knownSections = [
-    "ingredients",
-    "directions",
-    "instructions",
-    "method",
-    "preparation",
-    "prep",
-    "cake",
-    "syrup",
-    "frosting",
-    "topping",
-    "filling",
-    "dough",
-    "batter",
-    "glaze"
-  ];
-
-  lines = lines.map(l => {
-    const lower = l.toLowerCase();
-    if (knownSections.some(s => lower.includes(s))) {
-      return "\n" + l.toUpperCase() + "\n";
-    }
-    return normalizeCaps(l);
-  });
+  // Normalize caps
+  lines = lines.map(l => normalizeCaps(l));
 
   return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
-// -----------------------------
+// ------------------------------------------------------
 // OCR CLEANUP + PARSER
-// -----------------------------
+// ------------------------------------------------------
 function processRecipeText(rawText, name, category) {
-  let text = rawText
-    .replace(/\r/g, "\n")
-    .replace(/\u00A0/g, " ")
-    .replace(/[ ]{2,}/g, " ")
-    .replace(/\t+/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-
-  text = text
-    .replace(/\bPage\s*\d+\b/gi, "")
-    .replace(/\b\d{1,3}\s*of\s*\d{1,3}\b/gi, "")
-    .replace(/-{3,}/g, "")
-    .trim();
-
+  let text = cleanText(rawText);
   text = normalizeOCRText(text);
 
   let lines = text
@@ -446,8 +427,10 @@ function processRecipeText(rawText, name, category) {
     const clean = line.trim();
     const lower = clean.toLowerCase();
 
+    // Remove subsection labels (but keep their content)
     if (subsectionLabels.includes(lower)) continue;
 
+    // Switch modes
     if (isHeader(clean, "ingredient")) {
       mode = "ingredients";
       continue;
@@ -461,39 +444,46 @@ function processRecipeText(rawText, name, category) {
       continue;
     }
 
+    // Patterns
     const stepPattern = /^(\d+[\).]|step\s?\d+)/i;
     const ingredientPattern =
       /^(\d+|\d+\s?\/\s?\d+|\d+\.\d+|\d+\s?\d\/\d|\(?\d+.*\)?)\s*[a-z]/i;
 
+    // Numbered step
     if (stepPattern.test(clean)) {
       directions.push(clean);
       mode = "directions";
       continue;
     }
 
-    if (mode === "directions" && !ingredientPattern.test(clean) && clean.length > 0) {
+    // Continuation of previous step
+    if (mode === "directions" && !ingredientPattern.test(clean)) {
       if (directions.length > 0) {
         directions[directions.length - 1] += " " + clean;
         continue;
       }
     }
 
+    // Verb-based direction
     if (verbPattern.test(clean)) {
       directions.push(clean);
       mode = "directions";
       continue;
     }
 
+    // Ingredient
     if (mode === "ingredients" && ingredientPattern.test(clean)) {
       ingredients.push(clean);
       continue;
     }
 
+    // Long lines inside directions
     if (mode === "directions" && clean.length > 20) {
       directions.push(clean);
       continue;
     }
 
+    // Everything else = narrative
     narrative.push(clean);
   }
 
@@ -519,9 +509,9 @@ function processRecipeText(rawText, name, category) {
     });
 }
 
-// -----------------------------
+// ------------------------------------------------------
 // CATEGORY FILTERING
-// -----------------------------
+// ------------------------------------------------------
 function enableCategoryFiltering() {
   const items = document.querySelectorAll("#category-list li");
   if (!items) return;
