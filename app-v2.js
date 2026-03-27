@@ -798,14 +798,16 @@ if (scrollTopBtn) {
   });
 }
 
-// Expand/collapse narrative document.addEventListener("click", e => {
+// Expand/collapse narrative 
+document.addEventListener("click", e => {
   if (e.target.classList.contains("toggle-narrative")) {
     const block = document.querySelector(".recipe-narrative");
     if (block) block.classList.toggle("collapsed");
   }
 });
 
-// Expand/collapse ingredients document.addEventListener("click", e => {
+// Expand/collapse ingredients 
+document.addEventListener("click", e => {
   if (e.target.classList.contains("toggle-ingredients")) {
     const block = document.querySelector(".ingredients-list");
     if (block) block.classList.toggle("collapsed");
