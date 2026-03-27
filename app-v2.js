@@ -304,11 +304,9 @@ function detectTwoColumnLayout(lines) {
     if (isDirectionLike(line)) directionCount++;
   }
 
-  // If both ingredients and directions appear in the text,
-  // and they are interleaved, assume two-column layout.
-  return ingredientCount > 5 && directionCount > 3;
+  // Lower threshold for direction count
+  return ingredientCount > 5 && directionCount > 1;
 }
-
 /* ------------------------------------------------------------
 SPLIT INTO TWO COLUMNS
    ------------------------------------------------------------ */
