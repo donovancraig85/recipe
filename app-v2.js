@@ -1,4 +1,4 @@
-
+// app.js v2.6 — Clean, Generic, Cookbook‑Proof Importer
 // ------------------------------------------------------
 // GLOBALS
 // ------------------------------------------------------
@@ -371,7 +371,7 @@ function splitIngredients(line) {
 // MULTI‑STEP SPLITTER
 // ------------------------------------------------------
 function splitSteps(line) {
-  const stepPattern = /(\d+[\).])/g;
+  const stepPattern = /(\bstep\s*\d+[:.)-]*|\b\d+[:.)-])/gi;
   const matches = [...line.matchAll(stepPattern)];
 
   if (matches.length < 2) return [line];
@@ -387,6 +387,17 @@ function splitSteps(line) {
 
   parts.push(line.slice(lastIndex).trim());
   return parts.filter(p => p.length > 0);
+}
+
+// ------------------------------------------------------
+// STEP NUMBER REMOVER (Option B + remove punctuation)
+// ------------------------------------------------------
+function removeStepNumber(line) {
+  return line
+    .replace(/^(step\s*\d+[:.)-]*\s*)/i, "")
+    .replace(/^\d+[:.)-]*\s*/, "")
+    .replace(/^[\.\)\-—:]+\s*/, "")
+    .trim();
 }
 
 // ------------------------------------------------------
@@ -412,6 +423,46 @@ function stripVariations(line) {
 }
 
 // ------------------------------------------------------
+// INGREDIENT COMMENT REMOVER
+// ------------------------------------------------------
+function removeIngredientComments(line) {
+  const commentTriggers = [
+    "delicious",
+    "spoon",
+    "ever had",
+    "party mood",
+    "up the",
+    "you've"
+  ];
+
+  for (const key of commentTriggers) {
+    const idx = line.toLowerCase().indexOf(key);
+    if (idx !== -1) return line.slice(0, idx).trim();
+  }
+
+  return line;
+}
+
+// ------------------------------------------------------
+// QUANTITY-LINE MERGER
+// ------------------------------------------------------
+function mergeBrokenQuantities(lines) {
+  const merged = [];
+  for (let i = 0; i < lines.length; i++) {
+    const curr = lines[i];
+    const next = lines[i + 1] || "";
+
+    if (/^\d+$/.test(curr) && next.startsWith("(")) {
+      merged.push((curr + " " + next).trim());
+      i++;
+    } else {
+      merged.push(curr);
+    }
+  }
+  return merged;
+}
+
+// ------------------------------------------------------
 // UNIVERSAL OCR NORMALIZER
 // ------------------------------------------------------
 function normalizeOCRText(text) {
@@ -426,6 +477,8 @@ function normalizeOCRText(text) {
     .filter(l => l.length > 0);
 
   lines = lines.filter(l => !isGarbage(l));
+
+  lines = mergeBrokenQuantities(lines);
 
   const merged = [];
   for (let i = 0; i < lines.length; i++) {
@@ -487,7 +540,8 @@ function processRecipeText(rawText, name, category) {
   const verbPattern = /\b(preheat|beat|whisk|fold|pour|bake|refrigerate|serve|mix|stir|cook|cool|spread|cut|add|combine|grease|line)\b/i;
 
   for (let line of lines) {
-    const clean = stripVariations(line.trim());
+    let clean = stripVariations(line.trim());
+    clean = removeIngredientComments(clean);
     const lower = clean.toLowerCase();
 
     if (clean.length === 0) continue;
@@ -507,87 +561,10 @@ function processRecipeText(rawText, name, category) {
       continue;
     }
 
-    const stepPattern = /^(\d+[\).]|step\s?\d+)/i;
+    const stepPattern = /^(\bstep\s*\d+[:.)-]*|\b\d+[:.)-])/i;
     const ingredientPattern =
       /^(\d+|\d+\s?\/\s?\d+|\d+\.\d+|\d+\s?\d\/\d|\(?\d+.*\)?)\s*[a-z]/i;
 
     if (stepPattern.test(clean)) {
       const split = splitSteps(clean);
-      directions.push(...split);
-      mode = "directions";
-      continue;
-    }
-
-    if (mode === "directions" && !ingredientPattern.test(clean)) {
-      if (directions.length > 0) {
-        directions[directions.length - 1] += " " + clean;
-        continue;
-      }
-    }
-
-    if (verbPattern.test(clean)) {
-      directions.push(clean);
-      mode = "directions";
-      continue;
-    }
-
-    if (mode === "ingredients" && ingredientPattern.test(clean)) {
-      const split = splitIngredients(clean);
-      ingredients.push(...split);
-      continue;
-    }
-
-    if (mode === "directions" && clean.length > 20) {
-      directions.push(clean);
-      continue;
-    }
-
-    narrative.push(clean);
-  }
-
-  const recipe = {
-    name,
-    category,
-    narrative,
-    ingredients,
-    directions,
-    servings: "",
-    prepTime: "",
-    cookTime: "",
-    totalTime: "",
-    createdAt: new Date()
-  };
-
-  db.collection("recipes")
-    .add(recipe)
-    .then(() => alert("Recipe uploaded!"))
-    .catch(err => {
-      console.error("Error saving recipe:", err);
-      alert("Error saving recipe. Check console.");
-    });
-}
-
-// ------------------------------------------------------
-// CATEGORY FILTERING
-// ------------------------------------------------------
-function enableCategoryFiltering() {
-  const items = document.querySelectorAll("#category-list li");
-  if (!items) return;
-
-  items.forEach(li => {
-    li.addEventListener("click", () => {
-      items.forEach(i => i.classList.remove("active"));
-      li.classList.add("active");
-
-      const category = li.dataset.cat;
-
-      const filtered = recipes.filter(
-        r =>
-          r.category &&
-          r.category.toLowerCase() === category.toLowerCase()
-      );
-
-      renderRecipes(filtered);
-    });
-  });
-}
+      split.forEach
