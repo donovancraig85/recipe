@@ -1,4 +1,3 @@
-// app.js v2.7.2 — Full Pipeline (Importer + Formatter)
 // ------------------------------------------------------
 // GLOBALS
 // ------------------------------------------------------
@@ -158,6 +157,189 @@ if (search) {
   searchBtn?.addEventListener("click", runSearch);
 }
 
+/* ------------------------------------------------------------
+ MEDIUM-STRENGTH INGREDIENT DETECTOR
+   ------------------------------------------------------------ */
+function isIngredientLike(line) {
+  const lower = line.toLowerCase();
+
+  if (/^\d+([\/\s]\d+)?/.test(lower)) return true;
+  if (/\b(cup|cups|teaspoon|tablespoon|tsp|tbsp|ounce|oz|pound|lb|gram|ml|liter)\b/.test(lower))
+    return true;
+  if (/\(\d/.test(lower)) return true;
+  if (/\d+\/\d+/.test(lower)) return true;
+
+  return false;
+}
+
+/* ------------------------------------------------------------
+CLASSIFY LINES
+   ------------------------------------------------------------ */
+function classifyLine(line) {
+  const lower = line.toLowerCase();
+
+  if (/^[A-Za-z]+:/.test(line)) return "speaker";
+  if (isIngredientLike(line)) return "ingredient";
+  if (lower.includes("directions")) return "directions-header";
+  if (lower.includes("ingredients")) return "ingredients-header";
+
+  if (/^page\s*\d+/.test(lower)) return "garbage";
+  if (/^\d{3}$/.test(lower)) return "garbage";
+  if (/^(cake|syrup|frosting|topping|filling|glaze)$/i.test(lower)) return "garbage";
+  if (lower.includes("variation")) return "garbage";
+  if (lower.includes("serves")) return "garbage";
+  if (lower.includes("tres leches cake")) return "garbage";
+  if (lower.includes("three milks cake")) return "garbage";
+
+  return "narrative";
+}
+
+/* ------------------------------------------------------------
+ DETECT TWO-COLUMN LAYOUT
+   ------------------------------------------------------------ */
+function detectTwoColumnLayout(lines) {
+  let sawIngredientsHeader = false;
+  let ingredientBeforeHeader = false;
+  let alternatingPattern = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const type = classifyLine(lines[i]);
+
+    if (type === "ingredients-header") {
+      sawIngredientsHeader = true;
+      continue;
+    }
+
+    if (!sawIngredientsHeader && type === "ingredient") {
+      ingredientBeforeHeader = true;
+    }
+
+    if (i > 1) {
+      const prev = classifyLine(lines[i - 1]);
+      if (
+        (prev === "narrative" && type === "ingredient") ||
+        (prev === "ingredient" && type === "narrative")
+      ) {
+        alternatingPattern++;
+      }
+    }
+  }
+
+  return ingredientBeforeHeader || alternatingPattern >= 3;
+}
+
+/* ------------------------------------------------------------
+SPLIT INTO TWO COLUMNS
+   ------------------------------------------------------------ */
+function splitColumns(lines) {
+  const left = [];
+  const right = [];
+  let inDirections = false;
+
+  for (const line of lines) {
+    const type = classifyLine(line);
+
+    if (type === "directions-header") {
+      inDirections = true;
+      continue;
+    }
+
+    if (inDirections) {
+      left.push(line);
+      continue;
+    }
+
+    if (type === "speaker" || type === "narrative") {
+      left.push(line);
+      continue;
+    }
+
+    if (type === "ingredient") {
+      right.push(line);
+      continue;
+    }
+  }
+
+  return { left, right };
+}
+
+/* ------------------------------------------------------------
+ REBUILD PAGE
+   ------------------------------------------------------------ */
+function rebuildPage(columns) {
+  const narrative = [...columns.left];
+  const ingredients = [...columns.right];
+  const directions = [];
+
+  let inDirections = false;
+
+  for (const line of columns.left) {
+    if (classifyLine(line) === "directions-header") {
+      inDirections = true;
+      continue;
+    }
+    if (inDirections) directions.push(line);
+  }
+
+  return { narrative, ingredients, directions };
+}
+
+/* ------------------------------------------------------------
+IMPORTER
+   ------------------------------------------------------------ */
+function processRecipePipeline_v28(rawText, name, category) {
+  let lines = rawText
+    .replace(/\r/g, "\n")
+    .replace(/\u00A0/g, " ")
+    .replace(/[ ]{2,}/g, " ")
+    .replace(/\t+/g, " ")
+    .split("\n")
+    .map(l => l.trim())
+    .filter(l => l.length > 0);
+
+  lines = lines.filter(l => classifyLine(l) !== "garbage");
+
+  lines = mergeBrokenQuantities(lines);
+
+  lines = lines.map(l => normalizeUnits(normalizeFractions(l)));
+
+  const isTwoColumn = detectTwoColumnLayout(lines);
+
+  let narrative = [];
+  let ingredients = [];
+  let directions = [];
+
+  if (isTwoColumn) {
+    const columns = splitColumns(lines);
+    const rebuilt = rebuildPage(columns);
+    narrative = rebuilt.narrative;
+    ingredients = rebuilt.ingredients;
+    directions = rebuilt.directions;
+  } else {
+    narrative = lines;
+  }
+
+  directions = directions.map(d =>
+    d.replace(/^\d+[:.)-]*\s*/, "").trim()
+  );
+
+  return {
+    name,
+    category,
+    narrative,
+    ingredients,
+    directions,
+    createdAt: new Date()
+  };
+}
+
+/* ------------------------------------------------------------
+WRAPPER 
+   ------------------------------------------------------------ */
+function processRecipePipeline(rawText, name, category) {
+  return processRecipePipeline_v28(rawText, name, category);
+}
+
 // ------------------------------------------------------
 // OCR ENGINE
 // ------------------------------------------------------
@@ -298,7 +480,7 @@ async function readImageOCR(fileList, name, category) {
 }
 
 // ------------------------------------------------------
-// v2.7.2 PIPELINE HELPERS
+// v2.7.2 PIPELINE HELPERS (still used by v2.8)
 // ------------------------------------------------------
 
 // Normalize units BEFORE splitting
@@ -437,7 +619,9 @@ function splitIngredients(line) {
   return parts.filter(p => p.length > 0);
 }
 
-// Normalize OCR text
+// ------------------------------------------------------
+// NORMALIZE OCR TEXT
+// ------------------------------------------------------
 function normalizeOCR(text) {
   let lines = text
     .replace(/\r/g, "\n")
@@ -455,88 +639,10 @@ function normalizeOCR(text) {
 }
 
 // ------------------------------------------------------
-// v2.7.2 IMPORTER (keeps step numbers)
+// WRAPPER
 // ------------------------------------------------------
 function processRecipePipeline(rawText, name, category) {
-  const cleaned = cleanText(rawText);
-  const lines = normalizeOCR(cleaned);
-
-  let narrative = [];
-  let ingredients = [];
-  let directions = [];
-
-  let mode = "narrative";
-
-  const stepPattern = /^(\bstep\s*\d+[:.)-]*|\b\d+[:.)-])/i;
-  const ingredientPattern =
-    /^(\d+|\d+\s?\/\s?\d+|\d+\.\d+|\d+\s?\d\/\d|\(?\d+.*\)?)\s*[a-z]/i;
-
-  for (let line of lines) {
-    line = normalizeUnits(line);
-    line = normalizeFractions(line);
-    line = stripVariations(line);
-
-    if (line.length === 0) continue;
-
-    const lower = line.toLowerCase();
-
-    // Speaker lines → narrative only
-    if (isSpeakerLine(line)) {
-      narrative.push(line);
-      continue;
-    }
-
-    if (lower.includes("ingredient")) {
-      mode = "ingredients";
-      continue;
-    }
-
-    if (lower.includes("direction") || lower.includes("instruction") || lower.includes("method")) {
-      mode = "directions";
-      continue;
-    }
-
-    if (stepPattern.test(line)) {
-      const split = splitSteps(line);
-      split.forEach(s => directions.push(s));
-      mode = "directions";
-      continue;
-    }
-
-    if (mode === "ingredients" && ingredientPattern.test(line)) {
-      const split = splitIngredients(line);
-      split.forEach(s => {
-        const cleanedIng = removeIngredientComments(s).trim();
-        if (cleanedIng.length > 0) ingredients.push(cleanedIng);
-      });
-      continue;
-    }
-
-    if (mode === "directions") {
-      if (directions.length > 0) {
-        directions[directions.length - 1] += " " + line;
-      } else {
-        directions.push(line);
-      }
-      continue;
-    }
-
-    narrative.push(line);
-  }
-
-  // ------------------------------------------------------
-  // FORMATTER: remove step numbers
-  // ------------------------------------------------------
-  const formattedDirections = directions.map(removeStepNumber);
-
-  return {
-    name,
-    category,
-    narrative,
-    ingredients,
-    directions: formattedDirections,
-    createdAt: new Date()
-  };
+  return processRecipePipeline_v28(rawText, name, category);
 }
 
 // ------------------------------------------------------
@@ -578,3 +684,175 @@ function enableCategoryFiltering() {
     });
   });
 }
+
+// ------------------------------------------------------
+// RECIPE PAGE LOADER (recipe.html)
+// ------------------------------------------------------
+async function loadRecipePage() {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get("id");
+  if (!id) return;
+
+  try {
+    const doc = await db.collection("recipes").doc(id).get();
+    if (!doc.exists) {
+      document.getElementById("recipe-container").innerHTML =
+        "<p>Recipe not found.</p>";
+      return;
+    }
+
+    const recipe = doc.data();
+    renderFullRecipe(recipe);
+  } catch (err) {
+    console.error("Error loading recipe:", err);
+  }
+}
+
+// ------------------------------------------------------
+// RENDER FULL RECIPE VIEW
+// ------------------------------------------------------
+function renderFullRecipe(recipe) {
+  const container = document.getElementById("recipe-container");
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  const title = document.createElement("h1");
+  title.textContent = recipe.name;
+  container.appendChild(title);
+
+  if (recipe.category) {
+    const cat = document.createElement("div");
+    cat.className = "recipe-category";
+    cat.textContent = recipe.category;
+    container.appendChild(cat);
+  }
+
+  // Narrative
+  if (recipe.narrative && recipe.narrative.length > 0) {
+    const narrativeDiv = document.createElement("div");
+    narrativeDiv.className = "recipe-narrative";
+
+    recipe.narrative.forEach(line => {
+      const p = document.createElement("p");
+      p.textContent = line;
+      narrativeDiv.appendChild(p);
+    });
+
+    container.appendChild(narrativeDiv);
+  }
+
+  // Ingredients
+  if (recipe.ingredients && recipe.ingredients.length > 0) {
+    const ingHeader = document.createElement("h2");
+    ingHeader.textContent = "Ingredients";
+    container.appendChild(ingHeader);
+
+    const ul = document.createElement("ul");
+    recipe.ingredients.forEach(item => {
+      const li = document.createElement("li");
+      li.textContent = item;
+      ul.appendChild(li);
+    });
+    container.appendChild(ul);
+  }
+
+  // Directions
+  if (recipe.directions && recipe.directions.length > 0) {
+    const dirHeader = document.createElement("h2");
+    dirHeader.textContent = "Directions";
+    container.appendChild(dirHeader);
+
+    const ol = document.createElement("ol");
+    recipe.directions.forEach(step => {
+      const li = document.createElement("li");
+      li.textContent = step;
+      ol.appendChild(li);
+    });
+    container.appendChild(ol);
+  }
+}
+
+// Auto-run on recipe.html
+if (window.location.pathname.includes("recipe.html")) {
+  loadRecipePage();
+}
+
+// ------------------------------------------------------
+// UI HELPERS (OPTIONAL / PROJECT-SPECIFIC)
+// ------------------------------------------------------
+
+// Smooth scroll to top button (if present)
+const scrollTopBtn = document.getElementById("scroll-top-btn");
+if (scrollTopBtn) {
+  scrollTopBtn.addEventListener("click", () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  window.addEventListener("scroll", () => {
+    if (window.scrollY > 300) {
+      scrollTopBtn.style.display = "block";
+    } else {
+      scrollTopBtn.style.display = "none";
+    }
+  });
+}
+
+// Expand/collapse narrative document.addEventListener("click", e => {
+  if (e.target.classList.contains("toggle-narrative")) {
+    const block = document.querySelector(".recipe-narrative");
+    if (block) block.classList.toggle("collapsed");
+  }
+});
+
+// Expand/collapse ingredients document.addEventListener("click", e => {
+  if (e.target.classList.contains("toggle-ingredients")) {
+    const block = document.querySelector(".ingredients-list");
+    if (block) block.classList.toggle("collapsed");
+  }
+});
+
+// Expand/collapse directions 
+document.addEventListener("click", e => {
+  if (e.target.classList.contains("toggle-directions")) {
+    const block = document.querySelector(".directions-list");
+    if (block) block.classList.toggle("collapsed");
+  }
+});
+
+// ------------------------------------------------------
+// FINAL INITIALIZATION HOOKS
+// ------------------------------------------------------
+
+// Only run homepage logic if we're on index.html
+if (window.location.pathname.includes("index.html") || window.location.pathname === "/") {
+  // Ensure recipes load on homepage
+  if (typeof loadRecipes === "function") {
+    loadRecipes();
+  }
+}
+
+// Only run recipe page logic if we're on recipe.html
+if (window.location.pathname.includes("recipe.html")) {
+  if (typeof loadRecipePage === "function") {
+    loadRecipePage();
+  }
+}
+
+// Ensure category filtering is active when category list exists
+document.addEventListener("DOMContentLoaded", () => {
+  const categoryList = document.getElementById("category-list");
+  if (categoryList && typeof enableCategoryFiltering === "function") {
+    enableCategoryFiltering();
+  }
+});
+
+// Prevent errors if optional UI elements are missing
+window.addEventListener("load", () => {
+  // Scroll button safety
+  const scrollTopBtn = document.getElementById("scroll-top-btn");
+  if (scrollTopBtn) {
+    scrollTopBtn.style.display = "none";
+  }
+});
+
