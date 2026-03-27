@@ -304,8 +304,8 @@ function detectTwoColumnLayout(lines) {
     if (isDirectionLike(line)) directionCount++;
   }
 
-  // If both appear anywhere in the text, assume two-column layout
-  return ingredientCount > 5 && directionCount > 5;
+  // Very forgiving threshold for messy OCR
+  return ingredientCount > 5 && directionCount > 1;
 }
 
 
