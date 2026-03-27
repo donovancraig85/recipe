@@ -1,4 +1,4 @@
-// app.js v2.6 — Clean, Generic, Cookbook‑Proof Importer
+// app.js v2.7 — Full Pipeline (Importer + Formatter)
 // ------------------------------------------------------
 // GLOBALS
 // ------------------------------------------------------
@@ -213,7 +213,7 @@ if (uploadbtn) {
 // ------------------------------------------------------
 function readTextFile(file, name, category) {
   const reader = new FileReader();
-  reader.onload = () => processRecipeText(reader.result, name, category);
+  reader.onload = () => handleImportedText(reader.result, name, category);
   reader.readAsText(file);
 }
 
@@ -250,7 +250,7 @@ async function readPDF(file, name, category) {
     fullText += "\n" + pageText;
   }
 
-  processRecipeText(fullText, name, category);
+  handleImportedText(fullText, name, category);
 }
 
 // ------------------------------------------------------
@@ -262,7 +262,7 @@ function readDocx(file, name, category) {
     const result = await mammoth.extractRawText({
       arrayBuffer: reader.result
     });
-    processRecipeText(result.value, name, category);
+    handleImportedText(result.value, name, category);
   };
   reader.readAsArrayBuffer(file);
 }
@@ -275,7 +275,7 @@ function readHTML(file, name, category) {
   reader.onload = () => {
     const div = document.createElement("div");
     div.innerHTML = reader.result;
-    processRecipeText(div.innerText, name, category);
+    handleImportedText(div.innerText, name, category);
   };
   reader.readAsText(file);
 }
@@ -291,120 +291,46 @@ async function readImageOCR(fileList, name, category) {
     fullText += "\n" + text;
   }
 
-  processRecipeText(fullText, name, category);
+  handleImportedText(fullText, name, category);
 }
 
 // ------------------------------------------------------
-// CAPITALIZATION NORMALIZER
+// PIPELINE HELPERS
 // ------------------------------------------------------
-function normalizeCaps(line) {
-  if (line.length < 4) return line;
+function normalizeUnits(line) {
+  return line
+    .replace(/\btea\b/i, "teaspoon")
+    .replace(/\btable\b/i, "tablespoon")
+    .replace(/\btsp\b/i, "teaspoon")
+    .replace(/\btbsp\b/i, "tablespoon");
+}
 
-  const letters = line.replace(/[^A-Za-z]/g, "");
-  if (!letters) return line;
+function normalizeFractions(line) {
+  return line
+    .replace(/\b11\/4\b/g, "1 1/4")
+    .replace(/\b11\/2\b/g, "1 1/2")
+    .replace(/\b12\/3\b/g, "1 2/3")
+    .replace(/\b13\/4\b/g, "1 3/4");
+}
 
-  const upperCount = (letters.match(/[A-Z]/g) || []).length;
-  const lowerCount = (letters.match(/[a-z]/g) || []).length;
-
-  if (upperCount > lowerCount * 2) {
-    const lower = line.toLowerCase();
-    return lower.charAt(0).toUpperCase() + lower.slice(1);
+function removeIngredientComments(line) {
+  const triggers = [
+    "delicious",
+    "spoon",
+    "ever had",
+    "party mood",
+    "up the",
+    "you've"
+  ];
+  for (const t of triggers) {
+    const idx = line.toLowerCase().indexOf(t);
+    if (idx !== -1) return line.slice(0, idx).trim();
   }
-
   return line;
 }
 
-// ------------------------------------------------------
-// GARBAGE LINE FILTER
-// ------------------------------------------------------
-function isGarbage(line) {
-  const lower = line.toLowerCase();
-
-  const garbagePatterns = [
-    /^page\s*\d+/i,
-    /^\d+\s*of\s*\d+/i,
-    /^\d+$/,
-    /^desserts?$/i,
-    /^three guys from miami/i,
-    /^continued on next page/i,
-    /^tres leches cake/i,
-    /^three milks cake/i,
-    /^banana tres leches/i,
-    /^cuatro leches/i,
-    /^variations/i,
-    /^serves\b/i,
-    /^chapter\b/i,
-    /^section\b/i,
-    /^[A-Z][a-z]+:/,
-    /^copyright/i,
-    /^all rights reserved/i,
-    /^www\./i,
-    /^http/i
-  ];
-
-  return garbagePatterns.some(p => p.test(line));
-}
-
-// ------------------------------------------------------
-// STRICT INGREDIENT SPLITTER
-// ------------------------------------------------------
-function splitIngredients(line) {
-  const qtyPattern = /(\d+\s?\d*\/?\d*|\d+\.\d+|\(\d.*?\))/g;
-  const matches = [...line.matchAll(qtyPattern)];
-
-  if (matches.length < 2) return [line];
-
-  const parts = [];
-  let lastIndex = 0;
-
-  for (let i = 1; i < matches.length; i++) {
-    const start = matches[i].index;
-    parts.push(line.slice(lastIndex, start).trim());
-    lastIndex = start;
-  }
-
-  parts.push(line.slice(lastIndex).trim());
-  return parts.filter(p => p.length > 0);
-}
-
-// ------------------------------------------------------
-// MULTI‑STEP SPLITTER
-// ------------------------------------------------------
-function splitSteps(line) {
-  const stepPattern = /(\bstep\s*\d+[:.)-]*|\b\d+[:.)-])/gi;
-  const matches = [...line.matchAll(stepPattern)];
-
-  if (matches.length < 2) return [line];
-
-  const parts = [];
-  let lastIndex = 0;
-
-  for (let i = 1; i < matches.length; i++) {
-    const start = matches[i].index;
-    parts.push(line.slice(lastIndex, start).trim());
-    lastIndex = start;
-  }
-
-  parts.push(line.slice(lastIndex).trim());
-  return parts.filter(p => p.length > 0);
-}
-
-// ------------------------------------------------------
-// STEP NUMBER REMOVER (Option B + remove punctuation)
-// ------------------------------------------------------
-function removeStepNumber(line) {
-  return line
-    .replace(/^(step\s*\d+[:.)-]*\s*)/i, "")
-    .replace(/^\d+[:.)-]*\s*/, "")
-    .replace(/^[\.\)\-—:]+\s*/, "")
-    .trim();
-}
-
-// ------------------------------------------------------
-// VARIATION STRIPPER
-// ------------------------------------------------------
 function stripVariations(line) {
-  const variationKeywords = [
+  const keys = [
     "banana",
     "liqueur",
     "cuatro",
@@ -413,123 +339,109 @@ function stripVariations(line) {
     "many restaurants",
     "serve the cake in a bowl"
   ];
-
-  for (const key of variationKeywords) {
-    const idx = line.toLowerCase().indexOf(key);
+  for (const k of keys) {
+    const idx = line.toLowerCase().indexOf(k);
     if (idx !== -1) return line.slice(0, idx).trim();
   }
-
   return line;
 }
 
-// ------------------------------------------------------
-// INGREDIENT COMMENT REMOVER
-// ------------------------------------------------------
-function removeIngredientComments(line) {
-  const commentTriggers = [
-    "delicious",
-    "spoon",
-    "ever had",
-    "party mood",
-    "up the",
-    "you've"
+function isGarbage(line) {
+  const lower = line.toLowerCase();
+  const patterns = [
+    /^page\s*\d+/,
+    /^\d+\s*of\s*\d+/,
+    /^three guys/,
+    /^continued/,
+    /^desserts$/,
+    /^variations$/,
+    /^cuatro/,
+    /^banana/,
+    /^tres leches cake$/,
+    /^three milks cake$/,
+    /^www\./,
+    /^http/
   ];
-
-  for (const key of commentTriggers) {
-    const idx = line.toLowerCase().indexOf(key);
-    if (idx !== -1) return line.slice(0, idx).trim();
-  }
-
-  return line;
+  return patterns.some(p => p.test(lower));
 }
 
-// ------------------------------------------------------
-// QUANTITY-LINE MERGER
-// ------------------------------------------------------
 function mergeBrokenQuantities(lines) {
-  const merged = [];
+  const out = [];
   for (let i = 0; i < lines.length; i++) {
     const curr = lines[i];
     const next = lines[i + 1] || "";
-
     if (/^\d+$/.test(curr) && next.startsWith("(")) {
-      merged.push((curr + " " + next).trim());
+      out.push((curr + " " + next).trim());
       i++;
     } else {
-      merged.push(curr);
+      out.push(curr);
     }
   }
-  return merged;
+  return out;
 }
 
-// ------------------------------------------------------
-// UNIVERSAL OCR NORMALIZER
-// ------------------------------------------------------
-function normalizeOCRText(text) {
+function splitSteps(line) {
+  const pattern = /(\bstep\s*\d+[:.)-]*|\b\d+[:.)-])/gi;
+  const matches = [...line.matchAll(pattern)];
+  if (matches.length < 2) return [line];
+
+  const parts = [];
+  let last = 0;
+  for (let i = 1; i < matches.length; i++) {
+    const start = matches[i].index;
+    parts.push(line.slice(last, start).trim());
+    last = start;
+  }
+  parts.push(line.slice(last).trim());
+  return parts.filter(p => p.length > 0);
+}
+
+function removeStepNumber(line) {
+  return line
+    .replace(/^\s*step\s*\d+[:.)\-\—]*\s*/i, "")
+    .replace(/^\s*\d+[:.)\-\—]*\s*/, "")
+    .replace(/^[\.\)\:\-\—]+\s*/, "")
+    .trim();
+}
+
+function splitIngredients(line) {
+  const qty = /(\d+\s?\d*\/?\d*|\d+\.\d+|\(\d.*?\))/g;
+  const matches = [...line.matchAll(qty)];
+  if (matches.length < 2) return [line];
+
+  const parts = [];
+  let last = 0;
+  for (let i = 1; i < matches.length; i++) {
+    const start = matches[i].index;
+    parts.push(line.slice(last, start).trim());
+    last = start;
+  }
+  parts.push(line.slice(last).trim());
+  return parts.filter(p => p.length > 0);
+}
+
+function normalizeOCR(text) {
   let lines = text
     .replace(/\r/g, "\n")
     .replace(/\u00A0/g, " ")
     .replace(/[ ]{2,}/g, " ")
     .replace(/\t+/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
     .split("\n")
     .map(l => l.trim())
     .filter(l => l.length > 0);
 
   lines = lines.filter(l => !isGarbage(l));
-
   lines = mergeBrokenQuantities(lines);
 
-  const merged = [];
-  for (let i = 0; i < lines.length; i++) {
-    const curr = lines[i];
-    const next = lines[i + 1] || "";
-
-    const qty = /^(\d+|\d+\s?\/\s?\d+|\d+\.\d+|\d+\s?\d\/\d)/;
-    const unit = /(cup|tsp|tbsp|teaspoon|tablespoon|oz|ounce|gram|kg|lb|ml|liter|pinch|dash|clove|can|package|stick|slice|egg)/i;
-
-    const looksLikeQty = qty.test(curr);
-    const nextLooksLikeIngredient = unit.test(next) || /^[a-z]/i.test(next);
-
-    if (looksLikeQty && nextLooksLikeIngredient) {
-      merged.push(curr + " " + next);
-      i++;
-    } else {
-      merged.push(curr);
-    }
-  }
-  lines = merged;
-
-  lines = lines.map(l => normalizeCaps(l));
-
-  return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  return lines;
 }
 
 // ------------------------------------------------------
-// OCR CLEANUP + PARSER
+// IMPORTER + FORMATTER PIPELINE
 // ------------------------------------------------------
-function processRecipeText(rawText, name, category) {
-  let text = cleanText(rawText);
-  text = normalizeOCRText(text);
-
-  let lines = text
-    .split(/\n+/)
-    .map(l => l.trim())
-    .filter(l => l.length > 0);
-
-  const isHeader = (line, word) =>
-    line.replace(/\s+/g, "").toLowerCase().includes(word);
-
-  const subsectionLabels = [
-    "cake",
-    "syrup",
-    "frosting",
-    "topping",
-    "filling",
-    "dough",
-    "batter",
-    "glaze"
-  ];
+function processRecipePipeline(rawText, name, category) {
+  const cleaned = cleanText(rawText);
+  const lines = normalizeOCR(cleaned);
 
   let narrative = [];
   let ingredients = [];
@@ -537,94 +449,78 @@ function processRecipeText(rawText, name, category) {
 
   let mode = "narrative";
 
-  const verbPattern = /\b(preheat|beat|whisk|fold|pour|bake|refrigerate|serve|mix|stir|cook|cool|spread|cut|add|combine|grease|line)\b/i;
+  const stepPattern = /^(\bstep\s*\d+[:.)-]*|\b\d+[:.)-])/i;
+  const ingredientPattern =
+    /^(\d+|\d+\s?\/\s?\d+|\d+\.\d+|\d+\s?\d\/\d|\(?\d+.*\)?)\s*[a-z]/i;
 
   for (let line of lines) {
-    let clean = stripVariations(line.trim());
-    clean = removeIngredientComments(clean);
-    const lower = clean.toLowerCase();
+    line = stripVariations(line);
+    line = normalizeUnits(line);
+    line = normalizeFractions(line);
 
-    if (clean.length === 0) continue;
+    if (line.length === 0) continue;
 
-    if (subsectionLabels.includes(lower)) continue;
+    const lower = line.toLowerCase();
 
-    if (isHeader(clean, "ingredient")) {
+    if (lower.includes("ingredient")) {
       mode = "ingredients";
       continue;
     }
-    if (
-      isHeader(clean, "direction") ||
-      isHeader(clean, "instruction") ||
-      isHeader(clean, "method")
-    ) {
+
+    if (lower.includes("direction") || lower.includes("instruction") || lower.includes("method")) {
       mode = "directions";
       continue;
     }
 
-    const stepPattern = /^(\bstep\s*\d+[:.)-]*|\b\d+[:.)-])/i;
-    const ingredientPattern =
-      /^(\d+|\d+\s?\/\s?\d+|\d+\.\d+|\d+\s?\d\/\d|\(?\d+.*\)?)\s*[a-z]/i;
+    if (stepPattern.test(line)) {
+      const split = splitSteps(line);
+      split.forEach(s => directions.push(s));
+      mode = "directions";
+      continue;
+    }
 
-    // STEP LINES
-    if (stepPattern.test(clean)) {
-      const split = splitSteps(clean);
-      split.forEach(part => {
-        let stepText = removeStepNumber(part);
-        if (stepText.length > 0) {
-          directions.push(stepText);
-        }
+    if (mode === "ingredients" && ingredientPattern.test(line)) {
+      const split = splitIngredients(line);
+      split.forEach(s => {
+        const cleanedIng = removeIngredientComments(s).trim();
+        if (cleanedIng.length > 0) ingredients.push(cleanedIng);
       });
-      mode = "directions";
       continue;
     }
 
-    // CONTINUATION OF PREVIOUS STEP
-    if (mode === "directions" && !ingredientPattern.test(clean)) {
+    if (mode === "directions") {
       if (directions.length > 0) {
-        directions[directions.length - 1] += " " + clean;
-        continue;
+        directions[directions.length - 1] += " " + line;
+      } else {
+        directions.push(line);
       }
-    }
-
-    // VERB-BASED DIRECTION
-    if (verbPattern.test(clean)) {
-      directions.push(removeStepNumber(clean));
-      mode = "directions";
       continue;
     }
 
-    // INGREDIENTS
-    if (mode === "ingredients" && ingredientPattern.test(clean)) {
-      const split = splitIngredients(clean);
-      split.forEach(part => {
-        const trimmed = removeIngredientComments(part).trim();
-        if (trimmed.length > 0) ingredients.push(trimmed);
-      });
-      continue;
-    }
-
-    // LONG LINES INSIDE DIRECTIONS
-    if (mode === "directions" && clean.length > 20) {
-      directions.push(removeStepNumber(clean));
-      continue;
-    }
-
-    // EVERYTHING ELSE → NARRATIVE
-    narrative.push(clean);
+    narrative.push(line);
   }
 
-  const recipe = {
+  const formattedDirections = directions.map(removeStepNumber);
+
+  return {
     name,
     category,
     narrative,
     ingredients,
-    directions,
+    directions: formattedDirections,
     servings: "",
     prepTime: "",
     cookTime: "",
     totalTime: "",
     createdAt: new Date()
   };
+}
+
+// ------------------------------------------------------
+// HANDLE IMPORTED TEXT → SAVE TO FIRESTORE
+// ------------------------------------------------------
+function handleImportedText(rawText, name, category) {
+  const recipe = processRecipePipeline(rawText, name, category);
 
   db.collection("recipes")
     .add(recipe)
