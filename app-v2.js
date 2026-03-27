@@ -805,11 +805,11 @@ function enableCategoryFiltering() {
 
       const category = li.dataset.cat;
 
-      const filtered = recipes.filter(
-        r =>
-          r.category &&
-          r.category.toLowerCase() === category.toLowerCase()
-      );
+     const filtered = recipes.filter(r => {
+  const cat = (r.category || "").trim().toLowerCase();
+  return cat === category.toLowerCase();
+});
+
 
       renderRecipes(filtered);
     });
