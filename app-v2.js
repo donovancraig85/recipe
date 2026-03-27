@@ -259,23 +259,26 @@ function classifyLine(line) {
   if (lower.startsWith("directions")) return "header";
   if (lower.startsWith("ingredients")) return "header";
 
-  // 3. Ingredient fragments (only if not narrative-like)
+  // 3. Direction overrides (catch syrup/pour/cool/etc.)
   if (
-    (lower.includes("milk") || lower.includes("cream")) &&
+    lower.includes("pour") ||
+    lower.includes("whisk") ||
+    lower.includes("beat") ||
+    lower.includes("mix") ||
+    lower.includes("cool") ||
+    lower.includes("until")
+  ) {
+    return "direction";
+  }
+
+  // 4. Ingredient fragments (only if not narrative-like)
+  if (
+    (lower.includes("milk") || lower.includes("cream") || lower.includes("syrup")) &&
     !lower.includes("delicious") &&
     !lower.includes("served") &&
     !/^[A-Za-z]+:/.test(line.trim())
   ) {
     return "ingredient";
-  }
-
-  // 4. Direction fragments (only if not ingredient-like)
-  if (
-    (lower.includes("until") || lower.includes("cool") || lower.includes("bake")) &&
-    !lower.includes("milk") &&
-    !lower.includes("cream")
-  ) {
-    return "direction";
   }
 
   // 5. Default
