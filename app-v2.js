@@ -307,6 +307,7 @@ function detectTwoColumnLayout(lines) {
   // Lower threshold for direction count
   return ingredientCount > 5 && directionCount > 1;
 }
+
 /* ------------------------------------------------------------
 SPLIT INTO TWO COLUMNS
    ------------------------------------------------------------ */
