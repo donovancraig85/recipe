@@ -296,34 +296,17 @@ function classifyLine(line) {
  DETECT TWO-COLUMN LAYOUT
    ------------------------------------------------------------ */
 function detectTwoColumnLayout(lines) {
-  let sawIngredientsHeader = false;
-  let ingredientBeforeHeader = false;
-  let alternatingPattern = 0;
+  let ingredientCount = 0;
+  let directionCount = 0;
 
-  for (let i = 0; i < lines.length; i++) {
-    const type = classifyLine(lines[i]);
-
-    if (type === "ingredients-header") {
-      sawIngredientsHeader = true;
-      continue;
-    }
-
-    if (!sawIngredientsHeader && type === "ingredient") {
-      ingredientBeforeHeader = true;
-    }
-
-    if (i > 1) {
-      const prev = classifyLine(lines[i - 1]);
-      if (
-        (prev === "narrative" && type === "ingredient") ||
-        (prev === "ingredient" && type === "narrative")
-      ) {
-        alternatingPattern++;
-      }
-    }
+  for (const line of lines) {
+    if (isIngredientLike(line)) ingredientCount++;
+    if (isDirectionLike(line)) directionCount++;
   }
 
-  return ingredientBeforeHeader || alternatingPattern >= 3;
+  // If both ingredients and directions appear in the text,
+  // and they are interleaved, assume two-column layout.
+  return ingredientCount > 5 && directionCount > 3;
 }
 
 /* ------------------------------------------------------------
