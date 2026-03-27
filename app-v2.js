@@ -256,61 +256,6 @@ function classifyLine(line) {
 }
 
 /* ------------------------------------------------------------
- DETECT TWO-COLUMN LAYOUT
-   ------------------------------------------------------------ */
-function detectTwoColumnLayout(lines) {
-  let ingredientCount = 0;
-  let directionCount = 0;
-
-  for (const line of lines) {
-    if (isIngredientLike(line)) ingredientCount++;
-    if (isDirectionLike(line)) directionCount++;
-  }
-
-  // Very forgiving threshold for messy OCR
-  return ingredientCount > 5 && directionCount >= 1;
-}
-
-
-/* ------------------------------------------------------------
-SPLIT INTO TWO COLUMNS
-   ------------------------------------------------------------ */
-function splitColumns(lines) {
-  const left = [];  
-  const right = [];  
-
-  for (const line of lines) {
-    if (isDirectionLike(line) || isIngredientLike(line)) {
-      right.push(line);
-    } else {
-      left.push(line);
-    }
-  }
-
-  return { left, right };
-}
-/* ------------------------------------------------------------
- REBUILD PAGE
-   ------------------------------------------------------------ */
-function rebuildPage(columns) {
-  const narrative = [];
-  const ingredients = [];
-  const directions = [];
-
-  // LEFT = narrative only
-  for (const line of columns.left) {
-    narrative.push(line);
-  }
-
-  // RIGHT = ingredients + directions
-  for (const line of columns.right) {
-    if (isIngredientLike(line)) ingredients.push(line);
-    else if (isDirectionLike(line)) directions.push(line);
-  }
-
-  return { narrative, ingredients, directions };
-}
-/* ------------------------------------------------------------
 IMPORTER
    ------------------------------------------------------------ */
 function processRecipePipeline_v28(rawText, name, category) {
@@ -330,22 +275,19 @@ lines = lines.filter(l => {
   // 2. Normalize units + fractions AFTER cleaning
   lines = lines.map(l => normalizeUnits(normalizeFractions(l)));
 
-  // 3. Detect two-column layout
-  const isTwoColumn = detectTwoColumnLayout(lines);
-
   let narrative = [];
-  let ingredients = [];
-  let directions = [];
+let ingredients = [];
+let directions = [];
 
-  if (isTwoColumn) {
-    const columns = splitColumns(lines);
-    const rebuilt = rebuildPage(columns);
-    narrative = rebuilt.narrative;
-    ingredients = rebuilt.ingredients;
-    directions = rebuilt.directions;
+for (const line of lines) {
+  if (isIngredientLike(line)) {
+    ingredients.push(line);
+  } else if (isDirectionLike(line)) {
+    directions.push(line);
   } else {
-    narrative = lines;
+    narrative.push(line);
   }
+}
 
   // 4. Clean direction formatting
   directions = directions.map(d =>
