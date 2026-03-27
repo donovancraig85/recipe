@@ -760,6 +760,35 @@ function normalizeOCR(text) {
     .filter(l => l.length > 0);
 
   lines = lines.filter(l => !isGarbage(l));
+
+  lines = lines.filter(l => {
+    const lower = l.toLowerCase();
+    return ![
+      "narrative",
+      "ingredients",
+      "directions",
+      "instructions",
+      "method",
+      "steps",
+      "notes",
+      "tips",
+      "variations",
+      "variation",
+      "desserts",
+      "cake",
+      "syrup",
+      "frosting",
+      "topping",
+      "filling"
+    ].includes(lower);
+  });
+
+  lines = lines.filter(l => {
+    return !( /^[A-Z\s]{6,}$/.test(l) && l.split(" ").length > 1 );
+  });
+
+  lines = lines.filter(l => !/^\d{1,4}$/.test(l));
+
   lines = mergeBrokenQuantities(lines);
 
   return lines;
