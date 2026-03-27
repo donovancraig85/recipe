@@ -1,3 +1,4 @@
+
 // ------------------------------------------------------
 // GLOBALS
 // ------------------------------------------------------
@@ -305,7 +306,6 @@ function normalizeCaps(line) {
   const upperCount = (letters.match(/[A-Z]/g) || []).length;
   const lowerCount = (letters.match(/[a-z]/g) || []).length;
 
-  // If MOST letters are uppercase → convert to sentence case
   if (upperCount > lowerCount * 2) {
     const lower = line.toLowerCase();
     return lower.charAt(0).toUpperCase() + lower.slice(1);
@@ -335,7 +335,7 @@ function isGarbage(line) {
     /^serves\b/i,
     /^chapter\b/i,
     /^section\b/i,
-    /^[A-Z][a-z]+:/, // speaker names
+    /^[A-Z][a-z]+:/,
     /^copyright/i,
     /^all rights reserved/i,
     /^www\./i,
@@ -343,6 +343,72 @@ function isGarbage(line) {
   ];
 
   return garbagePatterns.some(p => p.test(line));
+}
+
+// ------------------------------------------------------
+// STRICT INGREDIENT SPLITTER
+// ------------------------------------------------------
+function splitIngredients(line) {
+  const qtyPattern = /(\d+\s?\d*\/?\d*|\d+\.\d+|\(\d.*?\))/g;
+  const matches = [...line.matchAll(qtyPattern)];
+
+  if (matches.length < 2) return [line];
+
+  const parts = [];
+  let lastIndex = 0;
+
+  for (let i = 1; i < matches.length; i++) {
+    const start = matches[i].index;
+    parts.push(line.slice(lastIndex, start).trim());
+    lastIndex = start;
+  }
+
+  parts.push(line.slice(lastIndex).trim());
+  return parts.filter(p => p.length > 0);
+}
+
+// ------------------------------------------------------
+// MULTI‑STEP SPLITTER
+// ------------------------------------------------------
+function splitSteps(line) {
+  const stepPattern = /(\d+[\).])/g;
+  const matches = [...line.matchAll(stepPattern)];
+
+  if (matches.length < 2) return [line];
+
+  const parts = [];
+  let lastIndex = 0;
+
+  for (let i = 1; i < matches.length; i++) {
+    const start = matches[i].index;
+    parts.push(line.slice(lastIndex, start).trim());
+    lastIndex = start;
+  }
+
+  parts.push(line.slice(lastIndex).trim());
+  return parts.filter(p => p.length > 0);
+}
+
+// ------------------------------------------------------
+// VARIATION STRIPPER
+// ------------------------------------------------------
+function stripVariations(line) {
+  const variationKeywords = [
+    "banana",
+    "liqueur",
+    "cuatro",
+    "dulce",
+    "variation",
+    "many restaurants",
+    "serve the cake in a bowl"
+  ];
+
+  for (const key of variationKeywords) {
+    const idx = line.toLowerCase().indexOf(key);
+    if (idx !== -1) return line.slice(0, idx).trim();
+  }
+
+  return line;
 }
 
 // ------------------------------------------------------
@@ -359,10 +425,8 @@ function normalizeOCRText(text) {
     .map(l => l.trim())
     .filter(l => l.length > 0);
 
-  // Remove garbage lines
   lines = lines.filter(l => !isGarbage(l));
 
-  // Merge broken ingredient lines
   const merged = [];
   for (let i = 0; i < lines.length; i++) {
     const curr = lines[i];
@@ -383,7 +447,6 @@ function normalizeOCRText(text) {
   }
   lines = merged;
 
-  // Normalize caps
   lines = lines.map(l => normalizeCaps(l));
 
   return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
@@ -424,13 +487,13 @@ function processRecipeText(rawText, name, category) {
   const verbPattern = /\b(preheat|beat|whisk|fold|pour|bake|refrigerate|serve|mix|stir|cook|cool|spread|cut|add|combine|grease|line)\b/i;
 
   for (let line of lines) {
-    const clean = line.trim();
+    const clean = stripVariations(line.trim());
     const lower = clean.toLowerCase();
 
-    // Remove subsection labels (but keep their content)
+    if (clean.length === 0) continue;
+
     if (subsectionLabels.includes(lower)) continue;
 
-    // Switch modes
     if (isHeader(clean, "ingredient")) {
       mode = "ingredients";
       continue;
@@ -444,19 +507,17 @@ function processRecipeText(rawText, name, category) {
       continue;
     }
 
-    // Patterns
     const stepPattern = /^(\d+[\).]|step\s?\d+)/i;
     const ingredientPattern =
       /^(\d+|\d+\s?\/\s?\d+|\d+\.\d+|\d+\s?\d\/\d|\(?\d+.*\)?)\s*[a-z]/i;
 
-    // Numbered step
     if (stepPattern.test(clean)) {
-      directions.push(clean);
+      const split = splitSteps(clean);
+      directions.push(...split);
       mode = "directions";
       continue;
     }
 
-    // Continuation of previous step
     if (mode === "directions" && !ingredientPattern.test(clean)) {
       if (directions.length > 0) {
         directions[directions.length - 1] += " " + clean;
@@ -464,26 +525,23 @@ function processRecipeText(rawText, name, category) {
       }
     }
 
-    // Verb-based direction
     if (verbPattern.test(clean)) {
       directions.push(clean);
       mode = "directions";
       continue;
     }
 
-    // Ingredient
     if (mode === "ingredients" && ingredientPattern.test(clean)) {
-      ingredients.push(clean);
+      const split = splitIngredients(clean);
+      ingredients.push(...split);
       continue;
     }
 
-    // Long lines inside directions
     if (mode === "directions" && clean.length > 20) {
       directions.push(clean);
       continue;
     }
 
-    // Everything else = narrative
     narrative.push(clean);
   }
 
