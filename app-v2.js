@@ -251,6 +251,20 @@ function classifyLine(line) {
   if (/[.]{3}$/.test(line.trim())) return "narrative"; // ends with ...
   if (/\(.*\)/.test(line) && !/\(\d/.test(line)) return "narrative"; // parentheses but not measurements
 
+  // NEW: narrative override for broken ingredient fragments
+  if (
+    (lower.includes("cake") ||
+     lower.includes("filling") ||
+     lower.includes("soaking") ||
+     lower.includes("syrup") ||
+     lower.includes("moistest") ||
+     lower.includes("delicious")) &&
+    !/^\d/.test(lower) &&              // does NOT start with a number
+    !lower.match(/^\d*\s*(cup|teaspoon|tablespoon|ounce|can|egg)/) // does NOT look like an ingredient
+  ) {
+    return "narrative";
+  }
+
   // 1. Strong signals
   if (isDirectionLike(line)) return "direction";
   if (isIngredientLike(line)) return "ingredient";
@@ -259,7 +273,7 @@ function classifyLine(line) {
   if (lower.startsWith("directions")) return "header";
   if (lower.startsWith("ingredients")) return "header";
 
-  // 3. Direction overrides (catch syrup/pour/cool/etc.)
+  // 3. Direction overrides
   if (
     lower.includes("pour") ||
     lower.includes("whisk") ||
