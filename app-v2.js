@@ -231,10 +231,12 @@ function isIngredientLike(line) {
 
 function isDirectionLike(line) {
   const lower = line.toLowerCase().trim();
-
   if (!lower) return false;
 
-  // 1. Starts with a verb (most directions do)
+  // 1. Starts with a number (1., 1), 1-)
+  if (/^\d+[\.\)\-]/.test(lower)) return true;
+
+  // 2. Starts with a cooking verb
   const cookingVerbs = [
     "add", "beat", "mix", "stir", "combine", "pour", "whisk", "fold",
     "bake", "cook", "heat", "boil", "simmer", "fry", "saute", "grill",
@@ -243,27 +245,25 @@ function isDirectionLike(line) {
     "transfer", "place", "arrange", "press", "cover", "uncover",
     "cool", "let", "allow", "serve"
   ];
-
   if (cookingVerbs.some(v => lower.startsWith(v + " "))) return true;
 
-  // 2. Contains step numbers
-  if (/^\d+[\.\):\-]/.test(lower)) return true;
-  if (/^step\s*\d+/i.test(lower)) return true;
+  // 3. Starts with "to ..." or "for the ..." (very common in OCR directions)
+  if (/^(to\s|for\s)/.test(lower)) return true;
 
-  // 3. Contains time or temperature
+  // 4. Contains time or temperature
   if (/\bminutes?\b/.test(lower)) return true;
   if (/\bhours?\b/.test(lower)) return true;
   if (/\bdegrees?\b/.test(lower)) return true;
-  if (/\b°F\b|\b°f\b|\b°c\b/.test(lower)) return true;
+  if (/\b°f\b|\b°c\b/.test(lower)) return true;
 
-  // 4. Contains cookware or action phrases
+  // 5. Contains cookware or action phrases
   const cookware = [
     "bowl", "pan", "skillet", "oven", "dish", "pot",
     "mixer", "spatula", "whisk", "fork", "knife"
   ];
   if (cookware.some(w => lower.includes(w))) return true;
 
-  // 5. Contains procedural phrases
+  // 6. Contains procedural phrases
   const procedural = [
     "until", "then", "next", "finally", "at this point",
     "in a separate", "in another", "in the meantime"
@@ -271,6 +271,7 @@ function isDirectionLike(line) {
   if (procedural.some(p => lower.includes(p))) return true;
 
   return false;
+}
 }
 
 
@@ -305,7 +306,7 @@ function detectTwoColumnLayout(lines) {
   }
 
   // Very forgiving threshold for messy OCR
-  return ingredientCount > 5 && directionCount > 1;
+  return ingredientCount > 5 && directionCount >= 1;
 }
 
 
