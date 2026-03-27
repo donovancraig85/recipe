@@ -257,16 +257,28 @@ function classifyLine(line) {
   // 4. Continuation page markers
   if (lower.includes("continuation")) return "narrative";
 
-  // 5. Ingredient fragments
-  if (lower.includes("milk") || lower.includes("cream")) return "ingredient";
+  // 5. Ingredient fragments — ONLY if not narrative-like
+  if (
+    (lower.includes("milk") || lower.includes("cream")) &&
+    !/^[A-Za-z]+:/.test(line.trim()) &&   // not a speaker
+    !lower.includes("served") &&          // narrative clue
+    !lower.includes("delicious")          // narrative clue
+  ) {
+    return "ingredient";
+  }
 
-  // 6. Direction fragments
-  if (lower.includes("until") || lower.includes("cool") || lower.includes("bake")) return "direction";
+  // 6. Direction fragments — ONLY if not ingredient-like
+  if (
+    (lower.includes("until") || lower.includes("cool") || lower.includes("bake")) &&
+    !lower.includes("milk") &&
+    !lower.includes("cream")
+  ) {
+    return "direction";
+  }
 
   // 7. Default
   return "narrative";
 }
-
 
 /* ------------------------------------------------------------
 IMPORTER
