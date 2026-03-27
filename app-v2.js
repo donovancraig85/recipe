@@ -637,7 +637,7 @@ function stripVariations(line) {
 }
 
 // Remove page numbers, headers, section labels
-unction isGarbage(line) {
+function isGarbage(line) {
   const lower = line.toLowerCase().trim();
 
   if (!lower) return true;
