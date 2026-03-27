@@ -386,21 +386,13 @@ function rebuildPage(columns) {
 IMPORTER
    ------------------------------------------------------------ */
 function processRecipePipeline_v28(rawText, name, category) {
-  let lines = rawText
-    .replace(/\r/g, "\n")
-    .replace(/\u00A0/g, " ")
-    .replace(/[ ]{2,}/g, " ")
-    .replace(/\t+/g, " ")
-    .split("\n")
-    .map(l => l.trim())
-    .filter(l => l.length > 0);
+  // 1. Clean and normalize OCR text
+  let lines = normalizeOCR(rawText);
 
-  lines = lines.filter(l => classifyLine(l) !== "garbage");
-
-  lines = mergeBrokenQuantities(lines);
-
+  // 2. Normalize units + fractions AFTER cleaning
   lines = lines.map(l => normalizeUnits(normalizeFractions(l)));
 
+  // 3. Detect two-column layout
   const isTwoColumn = detectTwoColumnLayout(lines);
 
   let narrative = [];
@@ -414,9 +406,11 @@ function processRecipePipeline_v28(rawText, name, category) {
     ingredients = rebuilt.ingredients;
     directions = rebuilt.directions;
   } else {
+    // Single-column fallback
     narrative = lines;
   }
 
+  // 4. Clean direction formatting
   directions = directions.map(d =>
     d.replace(/^\d+[:.)-]*\s*/, "").trim()
   );
