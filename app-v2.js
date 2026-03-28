@@ -385,7 +385,7 @@ function processRecipePipeline_v30(rawText, name, category) {
 WRAPPER 
    ------------------------------------------------------------ */
 function processRecipePipeline(rawText, name, category) {
-  return processRecipePipeline_v28(rawText, name, category);
+  return processRecipePipeline_v30(rawText, name, category);
 }
 
 // ------------------------------------------------------
@@ -748,7 +748,7 @@ function normalizeOCR(text) {
 // WRAPPER
 // ------------------------------------------------------
 function processRecipePipeline(rawText, name, category) {
-  return processRecipePipeline_v28(rawText, name, category);
+  return processRecipePipeline_v30(rawText, name, category);
 }
 
 // ------------------------------------------------------
