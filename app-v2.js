@@ -337,36 +337,64 @@ function classifyLine_v30(line) {
 IMPORTER
    ------------------------------------------------------------ */
 function processRecipePipeline_v30(rawText, name, category) {
-  // 1. Normalize OCR
+  // 1. Normalize OCR/PDF text
   let lines = normalizeOCR(rawText);
 
-  // 2. Remove headers BEFORE classification
-  const headerWords = ["ingredients", "directions", "narrative", "variations"];
+  // 2. Remove PDF headers/footers
+  const junk = [
+    "THREE GUYS FROM MIAMI",
+    "DESSERTS",
+    "PageHeader",
+    "PageNumber",
+    "continued on next page"
+  ];
+
   lines = lines.filter(l => {
-    const lower = l.toLowerCase().trim();
-    return !headerWords.some(h => lower.startsWith(h));
+    const lower = l.toLowerCase();
+    return !junk.some(j => lower.includes(j.toLowerCase()));
   });
 
-  // 3. Remove exact duplicate lines (OCR glitch cleanup)
-  lines = [...new Set(lines)];
-
-  // 4. Normalize units + fractions
+  // 3. Normalize units + fractions
   lines = lines.map(l => normalizeUnits(normalizeFractions(l)));
 
-  // 5. Classify each line
+  // 4. SECTION DETECTION (the key fix)
+  let section = "narrative";
   let narrative = [];
   let ingredients = [];
   let directions = [];
 
-  for (const line of lines) {
-    const type = classifyLine_v30(line);
+  for (let line of lines) {
+    const lower = line.toLowerCase().trim();
 
-    if (type === "ingredient") ingredients.push(line);
-    else if (type === "direction") directions.push(line);
-    else if (type === "narrative") narrative.push(line);
+    // Switch sections based on explicit headers
+    if (lower.startsWith("ingredients")) {
+      section = "ingredients";
+      continue;
+    }
+    if (/^\d+\./.test(lower)) {
+      section = "directions";
+      // keep the line (it's step 1)
+    }
+    if (lower.startsWith("tres leches cake (continuation)")) {
+      section = "narrative";
+      continue;
+    }
+    if (lower.startsWith("variations")) {
+      section = "narrative";
+      continue;
+    }
+
+    // Route lines based on section
+    if (section === "narrative") {
+      narrative.push(line);
+    } else if (section === "ingredients") {
+      if (line.trim() !== "") ingredients.push(line);
+    } else if (section === "directions") {
+      if (line.trim() !== "") directions.push(line);
+    }
   }
 
-  // 6. Clean direction numbering
+  // 5. Clean direction numbering
   directions = directions.map(d =>
     d.replace(/^\d+[:.)-]*\s*/, "").trim()
   );
@@ -380,7 +408,6 @@ function processRecipePipeline_v30(rawText, name, category) {
     createdAt: new Date()
   };
 }
-
 /* ------------------------------------------------------------
 WRAPPER 
    ------------------------------------------------------------ */
